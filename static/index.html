@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Tracker Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        .controls {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .controls input {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            margin-right: 10px;
+            width: 250px;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .stat-card .label {
+            color: #718096;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        .status-focused {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .status-away {
+            background: #ed8936;
+            color: white;
+        }
+        
+        .status-phone {
+            background: #f56565;
+            color: white;
+        }
+        
+        .session-info {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .session-info h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .intervals-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .interval-item {
+            padding: 10px;
+            border-left: 4px solid #667eea;
+            margin-bottom: 10px;
+            background: #f7fafc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Focus Tracker</h1>
+            <p>Track your study sessions with AI-powered focus detection</p>
+        </div>
+        
+        <div class="controls">
+            <input type="text" id="userName" placeholder="Enter your name" value="Priyanshi">
+            <button class="btn btn-primary" id="startBtn" onclick="startSession()">Start Session</button>
+            <button class="btn btn-danger hidden" id="endBtn" onclick="endSession()">End Session</button>
+        </div>
+        
+        <div id="dashboard" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Focus Time</h3>
+                    <div class="value" id="focusTime">0:00</div>
+                    <div class="label">minutes</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>Focus Score</h3>
+                    <div class="value" id="focusScore">0%</div>
+                    <div class="label">productivity</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>Distractions</h3>
+                    <div class="value" id="distractions">0</div>
+                    <div class="label">phone detections</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>Current Status</h3>
+                    <div class="value">
+                        <span id="currentStatus" class="status-indicator status-focused">Focused</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="session-info">
+                <h2>Session Details</h2>
+                <p><strong>Started:</strong> <span id="startTime">-</span></p>
+                <p><strong>Duration:</strong> <span id="duration">0:00</span></p>
+                
+                <div class="intervals-list" id="intervalsList">
+                    <h3>Activity Timeline</h3>
+                    <div id="intervals"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let updateInterval = null;
+        let sessionActive = false;
+        
+        async function startSession() {
+            const userName = document.getElementById('userName').value;
+            
+            if (!userName) {
+                alert('Please enter your name');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/session/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ user_name: userName })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    sessionActive = true;
+                    document.getElementById('startBtn').classList.add('hidden');
+                    document.getElementById('endBtn').classList.remove('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    document.getElementById('userName').disabled = true;
+                    
+                    // Start updating stats every 2 seconds
+                    updateInterval = setInterval(updateStats, 2000);
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Error starting session:', error);
+                alert('Failed to start session');
+            }
+        }
+        
+        async function endSession() {
+            try {
+                const response = await fetch('/session/end', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    sessionActive = false;
+                    clearInterval(updateInterval);
+                    
+                    alert(`Session ended!\nFocus time: ${formatTime(data.final_stats.focus_time)}\nFocus score: ${data.final_stats.focus_score}%`);
+                    
+                    // Reset UI
+                    document.getElementById('startBtn').classList.remove('hidden');
+                    document.getElementById('endBtn').classList.add('hidden');
+                    document.getElementById('dashboard').classList.add('hidden');
+                    document.getElementById('userName').disabled = false;
+                }
+            } catch (error) {
+                console.error('Error ending session:', error);
+            }
+        }
+        
+        async function updateStats() {
+            if (!sessionActive) return;
+            
+            try {
+                const response = await fetch('/session/current');
+                const data = await response.json();
+                
+                // Update stats
+                document.getElementById('focusTime').textContent = formatTime(data.metrics.focus_time);
+                document.getElementById('focusScore').textContent = data.metrics.focus_score + '%';
+                document.getElementById('distractions').textContent = data.metrics.phone_detections;
+                
+                // Update status
+                const statusEl = document.getElementById('currentStatus');
+                statusEl.textContent = data.current_status.replace('_', ' ').toUpperCase();
+                statusEl.className = 'status-indicator status-' + data.current_status.replace('_', '-');
+                
+                // Update session info
+                document.getElementById('startTime').textContent = new Date(data.start_time).toLocaleTimeString();
+                document.getElementById('duration').textContent = formatTime(data.metrics.focus_time + data.metrics.away_time);
+                
+                // Update intervals
+                const intervalsHtml = data.intervals.map(interval => `
+                    <div class="interval-item">
+                        <strong>${interval.start} - ${interval.end || 'ongoing'}</strong>: ${interval.status}
+                    </div>
+                `).join('');
+                document.getElementById('intervals').innerHTML = intervalsHtml;
+                
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+        
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
