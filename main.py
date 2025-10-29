@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, StreamingResponse
 import uvicorn
@@ -7,13 +7,20 @@ from bson import ObjectId
 import threading
 import time
 import cv2
-import asyncio
+import os
+import shutil
 
 from models import *
 from database import *
 from cv_processor import CVProcessor
 
 app = FastAPI(title="Focus Tracker API")
+
+# Create uploads directory if it doesn't exist
+os.makedirs("static/uploads", exist_ok=True)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Global state
 current_session = None
@@ -35,33 +42,28 @@ def status_change_callback(new_status, alert_data=None):
     global current_intervals, current_session, recent_alerts, session_metrics
     
     with session_lock:
-        # Handle session end request
         if new_status == "session_end":
             print(f"Session end requested: {alert_data['reason']}")
             return
         
-        # Handle alert
         if alert_data:
             recent_alerts.append(alert_data)
             session_metrics["total_alerts"] += 1
             recent_alerts = recent_alerts[-10:]
-            print(f"🔔 Alert added - Total alerts: {session_metrics['total_alerts']}")
+            print(f"🔔 Alert - Total: {session_metrics['total_alerts']}")
         
         if current_session:
             now = datetime.utcnow()
             
-            # End previous interval
             if current_intervals:
                 current_intervals[-1]["end"] = now.isoformat()
             
-            # Start new interval
             current_intervals.append({
                 "start": now.isoformat(),
                 "end": None,
                 "status": new_status
             })
             
-            # Update session in DB
             update_session(current_session, {
                 "focus_intervals": current_intervals,
                 "recent_alerts": recent_alerts
@@ -92,7 +94,6 @@ async def start_session(data: SessionStart):
             "total_alerts": 0
         }
     
-    # Start CV processor
     alert_mode = user.get("alert_preference", "both")
     cv_processor = CVProcessor(callback=status_change_callback, alert_mode=alert_mode)
     cv_thread = threading.Thread(target=cv_processor.start, daemon=True)
@@ -124,12 +125,7 @@ async def get_current_session_stats():
         for interval in current_intervals:
             try:
                 start = datetime.fromisoformat(interval["start"])
-                
-                if interval["end"]:
-                    end = datetime.fromisoformat(interval["end"])
-                else:
-                    end = current_time
-                
+                end = datetime.fromisoformat(interval["end"]) if interval["end"] else current_time
                 duration = (end - start).total_seconds()
                 
                 if interval["status"] == "studying":
@@ -175,22 +171,18 @@ async def end_session():
     
     print("🛑 Ending session...")
     
-    # Get final metrics BEFORE stopping
     stats = await get_current_session_stats()
     
-    # Stop CV processor first
     if cv_processor:
         print("Stopping CV processor...")
         cv_processor.stop()
-        time.sleep(0.5)  # Give it time to stop
+        time.sleep(0.5)
         cv_processor = None
     
     with session_lock:
-        # End current interval
         if current_intervals:
             current_intervals[-1]["end"] = datetime.utcnow().isoformat()
         
-        # Update session in DB with final metrics
         from database import end_session as db_end_session
         db_end_session(current_session, stats["metrics"])
         
@@ -223,12 +215,9 @@ async def update_alert_settings(settings: dict):
     return {"message": "Settings updated"}
 
 @app.get("/analytics/{period}")
-async def get_analytics(period: str):
+async def get_analytics(period: str, name: str):
     """Get analytics for day/week/month"""
-    global current_user
-    
-    if not current_user:
-        raise HTTPException(status_code=404, detail="No active user")
+    user = get_or_create_user(name)
     
     now = datetime.utcnow()
     
@@ -242,7 +231,7 @@ async def get_analytics(period: str):
         raise HTTPException(status_code=400, detail="Invalid period")
     
     sessions = list(sessions_collection.find({
-        "user_id": current_user["_id"],
+        "user_id": user["_id"],
         "start_time": {"$gte": start_date}
     }))
     
@@ -266,8 +255,7 @@ async def get_analytics(period: str):
             }
         
         daily_breakdown[date_key]["studying"] += session.get("metrics", {}).get("studying_time", 0)
-        daily_breakdown[date_key]["distracted"] += session.get("metrics", {}).get("away_time", 0)
-        daily_breakdown[date_key]["distracted"] += session.get("metrics", {}).get("distracted_time", 0)
+        daily_breakdown[date_key]["distracted"] += session.get("metrics", {}).get("away_time", 0) + session.get("metrics", {}).get("distracted_time", 0)
         daily_breakdown[date_key]["sessions"] += 1
     
     return {
@@ -282,14 +270,11 @@ async def get_analytics(period: str):
     }
 
 @app.get("/user/profile")
-async def get_user_profile():
+async def get_user_profile(name: str):
     """Get user profile and lifetime stats"""
-    global current_user
+    user = get_or_create_user(name)
     
-    if not current_user:
-        raise HTTPException(status_code=404, detail="No active user")
-    
-    all_sessions = list(sessions_collection.find({"user_id": current_user["_id"]}))
+    all_sessions = list(sessions_collection.find({"user_id": user["_id"]}))
     
     total_sessions = len(all_sessions)
     total_studying = sum(s.get("metrics", {}).get("studying_time", 0) for s in all_sessions)
@@ -312,8 +297,10 @@ async def get_user_profile():
         date_check -= timedelta(days=1)
     
     return {
-        "user_name": current_user["name"],
-        "joined_date": current_user.get("created_at", datetime.utcnow()).isoformat(),
+        "user_name": user["name"],
+        "joined_date": user.get("created_at", datetime.utcnow()).isoformat(),
+        "background_theme": user.get("background_theme", "gradient-purple"),
+        "profile_picture": user.get("profile_picture"),
         "stats": {
             "total_sessions": total_sessions,
             "total_study_hours": round(total_studying / 3600, 1),
@@ -324,12 +311,60 @@ async def get_user_profile():
         }
     }
 
+def update_user_profile(user_name, updates):
+    raise NotImplementedError
+
+@app.post("/user/profile")
+async def update_user_profile_settings(profile: UserProfileUpdate):
+    """Update user profile settings"""
+    updates = {}
+    if profile.background_theme:
+        updates["background_theme"] = profile.background_theme
+    
+    user = update_user_profile(profile.user_name, updates)
+    
+    return {
+        "message": "Profile updated",
+        "background_theme": user.get("background_theme")
+    }
+
+def upload_profile_picture(user_name: str, url: str):
+    raise NotImplementedError
+
+@app.post("/user/profile/picture")
+async def upload_profile_picture_endpoint(
+    file: UploadFile = File(...),
+    user_name: str = Form(...)
+):
+    """Upload profile picture"""
+    try:
+        # Generate unique filename
+        file_extension = os.path.splitext(file.filename)[1]
+        filename = f"{user_name}_{int(time.time())}{file_extension}"
+        file_path = os.path.join("static", "uploads", filename)
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Update database with relative path
+        url = f"/static/uploads/{filename}"
+        upload_profile_picture(user_name, url)
+        
+        return {
+            "message": "Profile picture uploaded",
+            "url": url
+        }
+    except Exception as e:
+        print(f"Error uploading file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload picture")
+
 def generate_frames():
-    """Generate video frames - HIGHLY OPTIMIZED"""
+    """Generate video frames"""
     global cv_processor
     
     print("📹 Video streaming started")
-    frame_skip = 4  # Only send every 4th frame
+    frame_skip = 4
     frame_count = 0
     
     while cv_processor and cv_processor.is_running:
@@ -343,7 +378,6 @@ def generate_frames():
         
         if frame is not None:
             try:
-                # Very small resolution
                 frame = cv2.resize(frame, (240, 180))
                 
                 status = cv_processor.get_current_status()
@@ -351,7 +385,6 @@ def generate_frames():
                 cv2.putText(frame, status.upper(), (10, 25), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                 
-                # Low quality encoding
                 ret, buffer = cv2.imencode('.jpg', frame, 
                     [cv2.IMWRITE_JPEG_QUALITY, 50,
                      cv2.IMWRITE_JPEG_OPTIMIZE, 1])
@@ -362,7 +395,7 @@ def generate_frames():
             except:
                 pass
         
-        time.sleep(0.15)  # ~6-7 FPS
+        time.sleep(0.15)
 
 @app.get("/video_feed")
 async def video_feed():
@@ -376,17 +409,24 @@ async def video_feed():
 async def read_root():
     """Serve the dashboard"""
     try:
-        import os
-        file_path = os.path.join("static", "index.html")
-        
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-            return content
+        with open("static/index.html", "r", encoding="utf-8") as f:
+            return f.read()
     except Exception as e:
         print(f"Error loading index.html: {e}")
+        return f"<h1>Error</h1><p>{str(e)}</p>"
+
+@app.get("/profile", response_class=HTMLResponse)
+async def read_profile():
+    """Serve the profile page"""
+    try:
+        with open("static/profile.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        print(f"Error loading profile.html: {e}")
         return f"<h1>Error</h1><p>{str(e)}</p>"
 
 if __name__ == "__main__":
     print("🎯 Starting Enhanced Focus Tracker...")
     print("📊 Dashboard: http://localhost:8000")
+    print("👤 Profile: http://localhost:8000/profile")
     uvicorn.run(app, host="0.0.0.0", port=8000)

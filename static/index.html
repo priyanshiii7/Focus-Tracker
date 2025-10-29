@@ -14,9 +14,29 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
+            transition: background 0.3s ease;
+        }
+        
+        body.gradient-purple {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        body.gradient-blue {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        body.gradient-sunset {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        
+        body.gradient-forest {
+            background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+        }
+        
+        body.gradient-night {
+            background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
         }
         
         .container {
@@ -51,6 +71,8 @@
             font-weight: 600;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
             transition: all 0.3s;
+            text-decoration: none;
+            color: inherit;
         }
         
         .profile-button:hover {
@@ -69,88 +91,13 @@
             color: white;
             font-size: 1.2em;
             font-weight: bold;
+            overflow: hidden;
         }
         
-        .profile-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
-            z-index: 3000;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .profile-modal.active {
-            display: flex;
-        }
-        
-        .profile-content {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            position: relative;
-        }
-        
-        .profile-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            font-size: 2em;
-            cursor: pointer;
-            color: #718096;
-        }
-        
-        .profile-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .profile-avatar-large {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 3em;
-            font-weight: bold;
-            margin: 0 auto 20px;
-        }
-        
-        .profile-stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            margin-top: 20px;
-        }
-        
-        .profile-stat {
-            background: #f7fafc;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-        }
-        
-        .profile-stat-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .profile-stat-label {
-            color: #718096;
-            margin-top: 5px;
-            font-size: 0.9em;
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         
         .alert-banner {
@@ -223,31 +170,6 @@
         
         .btn-danger {
             background: #f56565;
-            color: white;
-        }
-        
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            background: white;
-            padding: 10px;
-            border-radius: 15px;
-        }
-        
-        .tab {
-            flex: 1;
-            padding: 15px;
-            background: #f7fafc;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .tab.active {
-            background: #667eea;
             color: white;
         }
         
@@ -378,56 +300,6 @@
             25%, 75% { opacity: 0.3; }
         }
         
-        .heatmap-container {
-            display: flex;
-            gap: 3px;
-            flex-wrap: wrap;
-            margin-top: 20px;
-        }
-        
-        .heatmap-day {
-            width: 30px;
-            height: 30px;
-            border-radius: 4px;
-            background: #ebedf0;
-            position: relative;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .heatmap-day:hover {
-            transform: scale(1.1);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-        
-        .heatmap-day::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 110%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #2d3748;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            z-index: 10;
-        }
-        
-        .heatmap-day:hover::after {
-            opacity: 1;
-        }
-        
-        .heatmap-day.level-0 { background: #ebedf0; }
-        .heatmap-day.level-1 { background: #c6e48b; }
-        .heatmap-day.level-2 { background: #7bc96f; }
-        .heatmap-day.level-3 { background: #239a3b; }
-        .heatmap-day.level-4 { background: #196127; }
-        
         .alerts-list {
             max-height: 250px;
             overflow-y: auto;
@@ -451,48 +323,10 @@
         }
     </style>
 </head>
-<body>
+<body class="gradient-purple">
     <div id="alertBanner" class="alert-banner">
         ⚠️ GET BACK TO WORK! ⚠️<br>
         <span style="font-size: 0.5em;">Focus on your studies NOW!</span>
-    </div>
-    
-    <div class="profile-modal" id="profileModal">
-        <div class="profile-content">
-            <span class="profile-close" onclick="closeProfile()">&times;</span>
-            <div class="profile-header">
-                <div class="profile-avatar-large" id="profileAvatarLarge">P</div>
-                <h2 id="profileName">Priyanshi</h2>
-                <p style="color: #718096;">Member since <span id="joinedDate">-</span></p>
-            </div>
-            
-            <div class="profile-stats-grid">
-                <div class="profile-stat">
-                    <div class="profile-stat-value" id="profileTotalSessions">0</div>
-                    <div class="profile-stat-label">Total Sessions</div>
-                </div>
-                <div class="profile-stat">
-                    <div class="profile-stat-value" id="profileTotalHours">0h</div>
-                    <div class="profile-stat-label">Study Hours</div>
-                </div>
-                <div class="profile-stat">
-                    <div class="profile-stat-value" id="profileAvgFocus">0%</div>
-                    <div class="profile-stat-label">Avg Focus Score</div>
-                </div>
-                <div class="profile-stat">
-                    <div class="profile-stat-value" id="profileStreak">0</div>
-                    <div class="profile-stat-label">Day Streak</div>
-                </div>
-                <div class="profile-stat">
-                    <div class="profile-stat-value" id="profileLongestSession">0:00</div>
-                    <div class="profile-stat-label">Longest Session</div>
-                </div>
-                <div class="profile-stat">
-                    <div class="profile-stat-value" id="profileTotalAlerts">0</div>
-                    <div class="profile-stat-label">Total Alerts</div>
-                </div>
-            </div>
-        </div>
     </div>
     
     <div class="container">
@@ -501,10 +335,12 @@
                 <h1>📚 Focus Tracker</h1>
                 <p>AI-powered study session monitor</p>
             </div>
-            <div class="profile-button" onclick="openProfile()">
-                <div class="profile-avatar" id="profileAvatar">P</div>
+            <a href="profile.html" class="profile-button" id="profileBtn" onclick="goToProfile()">
+                <div class="profile-avatar" id="profileAvatar">
+                    <span id="profileInitial">P</span>
+                </div>
                 <span id="profileNameShort">Priyanshi</span>
-            </div>
+            </a>
         </div>
         
         <div class="controls">
@@ -521,166 +357,69 @@
             </div>
         </div>
         
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('live', event)">Live Session</button>
-            <button class="tab" onclick="switchTab('day', event)">Today</button>
-            <button class="tab" onclick="switchTab('week', event)">This Week</button>
-            <button class="tab" onclick="switchTab('month', event)">This Month</button>
-        </div>
-        
-        <div id="liveTab" class="tab-content">
-            <div id="dashboard" class="hidden">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <h3>Study Time</h3>
-                        <div class="value" id="studyTime">0:00</div>
-                        <div class="label">minutes focused</div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <h3>Focus Score</h3>
-                        <div class="value" id="focusScore">100%</div>
-                        <div class="label">productivity</div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <h3>Time Away</h3>
-                        <div class="value" id="awayTime">0:00</div>
-                        <div class="label">looking away</div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <h3>Alerts Triggered</h3>
-                        <div class="value" id="alertsCount">0</div>
-                        <div class="label">warnings sent</div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <h3>Current Status</h3>
-                        <div class="value">
-                            <span id="currentStatus" class="status-indicator status-studying">Studying</span>
-                        </div>
-                    </div>
+        <div id="dashboard" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Study Time</h3>
+                    <div class="value" id="studyTime">0:00</div>
+                    <div class="label">minutes focused</div>
                 </div>
                 
-                <div class="charts-row">
-                    <div class="chart-container">
-                        <h2>Time Distribution</h2>
-                        <canvas id="timeChart"></canvas>
-                    </div>
-                    
-                    <div class="chart-container">
-                        <h2>Focus Timeline</h2>
-                        <canvas id="focusTimeline"></canvas>
-                    </div>
+                <div class="stat-card">
+                    <h3>Focus Score</h3>
+                    <div class="value" id="focusScore">100%</div>
+                    <div class="label">productivity</div>
                 </div>
                 
-                <div class="session-info">
-                    <h2>Session Details</h2>
-                    <p><strong>Started:</strong> <span id="startTime">-</span></p>
-                    <p><strong>Duration:</strong> <span id="duration">0:00</span></p>
-                    
-                    <div class="alerts-list">
-                        <h3 style="margin-top: 20px; color: #f56565;">⚠️ Recent Alerts</h3>
-                        <div id="recentAlerts">
-                            <p style="color: #718096; font-style: italic;">No alerts yet - keep studying!</p>
-                        </div>
+                <div class="stat-card">
+                    <h3>Time Away</h3>
+                    <div class="value" id="awayTime">0:00</div>
+                    <div class="label">looking away</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>Alerts Triggered</h3>
+                    <div class="value" id="alertsCount">0</div>
+                    <div class="label">warnings sent</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>Current Status</h3>
+                    <div class="value">
+                        <span id="currentStatus" class="status-indicator status-studying">Studying</span>
                     </div>
                 </div>
             </div>
             
-            <div id="noSession" class="chart-container">
-                <h2>No Active Session</h2>
-                <p>Start a session to begin tracking your study time!</p>
+            <div class="charts-row">
+                <div class="chart-container">
+                    <h2>Time Distribution</h2>
+                    <canvas id="timeChart"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <h2>Focus Timeline</h2>
+                    <canvas id="focusTimeline"></canvas>
+                </div>
+            </div>
+            
+            <div class="session-info">
+                <h2>Session Details</h2>
+                <p><strong>Started:</strong> <span id="startTime">-</span></p>
+                <p><strong>Duration:</strong> <span id="duration">0:00</span></p>
+                
+                <div class="alerts-list">
+                    <h3 style="margin-top: 20px; color: #f56565;">⚠️ Recent Alerts</h3>
+                    <div id="recentAlerts">
+                        <p style="color: #718096; font-style: italic;">No alerts yet - keep studying!</p>
+                    </div>
+                </div>
             </div>
         </div>
         
-        <div id="dayTab" class="tab-content hidden">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>Today's Study Time</h3>
-                    <div class="value" id="dayStudyTime">0h</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Sessions</h3>
-                    <div class="value" id="daySessions">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Avg Focus Score</h3>
-                    <div class="value" id="dayFocusScore">0%</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Total Alerts</h3>
-                    <div class="value" id="dayAlerts">0</div>
-                </div>
-            </div>
-            
-            <div class="chart-container">
-                <h2>Today's Performance</h2>
-                <canvas id="dayChart"></canvas>
-            </div>
-        </div>
-        
-        <div id="weekTab" class="tab-content hidden">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>Week's Study Time</h3>
-                    <div class="value" id="weekStudyTime">0h</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Sessions</h3>
-                    <div class="value" id="weekSessions">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Avg Focus Score</h3>
-                    <div class="value" id="weekFocusScore">0%</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Daily Average</h3>
-                    <div class="value" id="weekAvg">0h</div>
-                </div>
-            </div>
-            
-            <div class="chart-container">
-                <h2>Weekly Activity</h2>
-                <canvas id="weekChart"></canvas>
-            </div>
-            
-            <div class="chart-container">
-                <h2>Week Activity Heatmap</h2>
-                <div id="weekHeatmap" class="heatmap-container"></div>
-            </div>
-        </div>
-        
-        <div id="monthTab" class="tab-content hidden">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>Month's Study Time</h3>
-                    <div class="value" id="monthStudyTime">0h</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Sessions</h3>
-                    <div class="value" id="monthSessions">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Avg Focus Score</h3>
-                    <div class="value" id="monthFocusScore">0%</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Best Day</h3>
-                    <div class="value" id="monthBestDay">-</div>
-                </div>
-            </div>
-            
-            <div class="chart-container">
-                <h2>Monthly Progress</h2>
-                <canvas id="monthChart"></canvas>
-            </div>
-            
-            <div class="chart-container">
-                <h2>Monthly Activity Heatmap</h2>
-                <div id="monthHeatmap" class="heatmap-container"></div>
-            </div>
+        <div id="noSession" class="chart-container">
+            <h2>No Active Session</h2>
+            <p>Start a session to begin tracking your study time!</p>
         </div>
     </div>
     
@@ -695,59 +434,48 @@
     <script>
         let updateInterval = null;
         let sessionActive = false;
-        let currentTab = 'live';
-        let timeChart, focusTimeline, dayChart, weekChart, monthChart;
+        let timeChart, focusTimeline;
         let currentUserName = 'Priyanshi';
         
-        function openProfile() {
-            document.getElementById('profileModal').classList.add('active');
-            loadProfileData();
-        }
-        
-        function closeProfile() {
-            document.getElementById('profileModal').classList.remove('active');
-        }
-        
-        async function loadProfileData() {
+        async function loadUserSettings() {
+            const userName = document.getElementById('userName').value;
             try {
-                const response = await fetch('/user/profile');
+                const response = await fetch(`/user/profile?name=${userName}`);
                 const data = await response.json();
                 
-                document.getElementById('profileName').textContent = data.user_name;
-                document.getElementById('joinedDate').textContent = new Date(data.joined_date).toLocaleDateString();
+                // Apply background theme
+                document.body.className = data.background_theme || 'gradient-purple';
                 
-                document.getElementById('profileTotalSessions').textContent = data.stats.total_sessions;
-                document.getElementById('profileTotalHours').textContent = data.stats.total_study_hours + 'h';
-                document.getElementById('profileAvgFocus').textContent = data.stats.average_focus_score + '%';
-                document.getElementById('profileStreak').textContent = data.stats.current_streak;
-                document.getElementById('profileLongestSession').textContent = formatTime(data.stats.longest_session);
-                document.getElementById('profileTotalAlerts').textContent = data.stats.total_alerts;
+                // Update profile display
+                updateProfileDisplay(data);
             } catch (error) {
-                console.error('Error loading profile:', error);
+                console.error('Error loading user settings:', error);
             }
         }
         
-        function updateProfileDisplay(userName) {
-            const initial = userName.charAt(0).toUpperCase();
-            document.getElementById('profileAvatar').textContent = initial;
-            document.getElementById('profileAvatarLarge').textContent = initial;
-            document.getElementById('profileNameShort').textContent = userName;
-            document.getElementById('profileName').textContent = userName;
-            currentUserName = userName;
+        function updateProfileDisplay(userData) {
+            const profileAvatar = document.getElementById('profileAvatar');
+            const profileInitial = document.getElementById('profileInitial');
+            const profileNameShort = document.getElementById('profileNameShort');
+            
+            if (userData.profile_picture) {
+                profileInitial.style.display = 'none';
+                const img = document.createElement('img');
+                img.src = userData.profile_picture;
+                img.alt = userData.user_name;
+                profileAvatar.appendChild(img);
+            } else {
+                const initial = userData.user_name.charAt(0).toUpperCase();
+                profileInitial.textContent = initial;
+                profileInitial.style.display = 'block';
+            }
+            
+            profileNameShort.textContent = userData.user_name;
+            currentUserName = userData.user_name;
         }
         
-        function switchTab(tab, event) {
-            currentTab = tab;
-            
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
-            
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
-            document.getElementById(tab + 'Tab').classList.remove('hidden');
-            
-            if (tab !== 'live') {
-                loadAnalytics(tab);
-            }
+        function goToProfile() {
+            window.location.href = `/profile?name=${currentUserName}`;
         }
         
         async function startSession() {
@@ -758,8 +486,6 @@
                 alert('Please enter your name');
                 return;
             }
-            
-            updateProfileDisplay(userName);
             
             try {
                 await fetch('/settings/alerts', {
@@ -810,7 +536,6 @@
         }
         
         async function endSession() {
-            // Prevent multiple clicks
             const endBtn = document.getElementById('endBtn');
             if (endBtn.disabled) return;
             
@@ -884,23 +609,13 @@
                 `).join('');
                 document.getElementById('recentAlerts').innerHTML = alertsHtml || '<p style="color: #718096; font-style: italic;">No alerts yet - keep studying!</p>';
                 
-                // Show text alert if recent
                 if (data.recent_alerts.length > 0) {
                     const lastAlert = data.recent_alerts[data.recent_alerts.length - 1];
                     const alertTime = new Date(lastAlert.timestamp);
                     const now = new Date();
                     const timeDiff = now - alertTime;
                     
-                    console.log('📊 Alert check:', {
-                        total_alerts: data.recent_alerts.length,
-                        last_message: lastAlert.message,
-                        alert_type: lastAlert.type,
-                        time_diff: timeDiff + 'ms'
-                    });
-                    
-                    // Show banner if alert is within last 5 seconds
                     if (timeDiff < 5000 && (lastAlert.type === 'text' || lastAlert.type === 'both')) {
-                        console.log('🔔 SHOWING TEXT ALERT!');
                         showTextAlert(lastAlert.message);
                     }
                 }
@@ -916,12 +631,9 @@
                 banner.innerHTML = `⚠️ ${message.toUpperCase()} ⚠️<br><span style="font-size: 0.5em;">Focus on your studies NOW!</span>`;
             }
             banner.style.display = 'block';
-            console.log('🔔 TEXT ALERT DISPLAYED:', message);
             
-            // Auto-hide after 5 seconds
             setTimeout(() => {
                 banner.style.display = 'none';
-                console.log('🔕 Alert banner hidden');
             }, 5000);
         }
         
@@ -997,205 +709,6 @@
         function destroyCharts() {
             if (timeChart) timeChart.destroy();
             if (focusTimeline) focusTimeline.destroy();
-            if (dayChart) dayChart.destroy();
-            if (weekChart) weekChart.destroy();
-            if (monthChart) monthChart.destroy();
-        }
-        
-        async function loadAnalytics(period) {
-            try {
-                const response = await fetch(`/analytics/${period}`);
-                const data = await response.json();
-                const analytics = data.analytics;
-                
-                const prefix = period;
-                document.getElementById(prefix + 'StudyTime').textContent = analytics.total_studying_hours + 'h';
-                document.getElementById(prefix + 'Sessions').textContent = analytics.total_sessions;
-                document.getElementById(prefix + 'FocusScore').textContent = analytics.focus_score + '%';
-                
-                if (period === 'day') {
-                    document.getElementById('dayAlerts').textContent = analytics.total_alerts;
-                    renderDayChart(analytics.daily_breakdown);
-                } else if (period === 'week') {
-                    document.getElementById('weekAvg').textContent = 
-                        (analytics.total_studying_hours / 7).toFixed(1) + 'h';
-                    renderWeekChart(analytics.daily_breakdown);
-                    renderHeatmap('weekHeatmap', analytics.daily_breakdown, 7);
-                } else if (period === 'month') {
-                    const dailyData = analytics.daily_breakdown;
-                    let bestDay = '-';
-                    let maxTime = 0;
-                    for (const [day, data] of Object.entries(dailyData)) {
-                        if (data.studying > maxTime) {
-                            maxTime = data.studying;
-                            bestDay = new Date(day).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'});
-                        }
-                    }
-                    document.getElementById('monthBestDay').textContent = bestDay;
-                    renderMonthChart(analytics.daily_breakdown);
-                    renderHeatmap('monthHeatmap', analytics.daily_breakdown, 30);
-                }
-                
-            } catch (error) {
-                console.error('Error loading analytics:', error);
-            }
-        }
-        
-        function renderDayChart(dailyData) {
-            const ctx = document.getElementById('dayChart');
-            if (!ctx) return;
-            
-            if (dayChart) dayChart.destroy();
-            
-            const today = new Date().toISOString().split('T')[0];
-            const data = dailyData[today] || {studying: 0, distracted: 0, sessions: 0};
-            
-            const studyMinutes = (data.studying / 60).toFixed(0);
-            const awayMinutes = (data.distracted / 60).toFixed(0);
-            
-            dayChart = new Chart(ctx.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: ['Studying', 'Away/Distracted'],
-                    datasets: [{
-                        label: 'Time (minutes)',
-                        data: [studyMinutes, awayMinutes],
-                        backgroundColor: ['#48bb78', '#ed8936']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: `Today's Performance (${data.sessions} sessions)`
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Minutes'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        function renderWeekChart(dailyData) {
-            const ctx = document.getElementById('weekChart');
-            if (!ctx) return;
-            
-            if (weekChart) weekChart.destroy();
-            
-            const labels = [];
-            const studyData = [];
-            
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                const dateKey = date.toISOString().split('T')[0];
-                
-                labels.push(date.toLocaleDateString('en-US', {weekday: 'short'}));
-                const dayData = dailyData[dateKey] || {studying: 0};
-                studyData.push((dayData.studying / 3600).toFixed(1));
-            }
-            
-            weekChart = new Chart(ctx.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Study Hours',
-                        data: studyData,
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        }
-        
-        function renderMonthChart(dailyData) {
-            const ctx = document.getElementById('monthChart');
-            if (!ctx) return;
-            
-            if (monthChart) monthChart.destroy();
-            
-            const labels = [];
-            const studyData = [];
-            
-            for (let i = 29; i >= 0; i--) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                const dateKey = date.toISOString().split('T')[0];
-                
-                if (i % 3 === 0) {
-                    labels.push(date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'}));
-                } else {
-                    labels.push('');
-                }
-                
-                const dayData = dailyData[dateKey] || {studying: 0};
-                studyData.push((dayData.studying / 3600).toFixed(1));
-            }
-            
-            monthChart = new Chart(ctx.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Study Hours',
-                        data: studyData,
-                        backgroundColor: '#667eea'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        }
-        
-        function renderHeatmap(containerId, dailyData, days) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            
-            const today = new Date();
-            for (let i = days - 1; i >= 0; i--) {
-                const date = new Date(today);
-                date.setDate(date.getDate() - i);
-                const dateKey = date.toISOString().split('T')[0];
-                
-                const dayData = dailyData[dateKey];
-                const hours = dayData ? (dayData.studying / 3600).toFixed(1) : 0;
-                
-                let level = 0;
-                if (hours > 0) level = 1;
-                if (hours > 1) level = 2;
-                if (hours > 2) level = 3;
-                if (hours > 3) level = 4;
-                
-                const box = document.createElement('div');
-                box.className = `heatmap-day level-${level}`;
-                box.setAttribute('data-tooltip', `${date.toLocaleDateString()}: ${hours}h`);
-                container.appendChild(box);
-            }
         }
         
         function formatTime(seconds) {
@@ -1212,8 +725,8 @@
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
         
-        // Initialize profile on page load
-        updateProfileDisplay('Priyanshi');
+        // Load user settings on page load
+        loadUserSettings();
     </script>
 </body>
 </html>

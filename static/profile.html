@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Focus Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.3s ease;
+        }
+        
+        body.gradient-purple {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        body.gradient-blue {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        body.gradient-sunset {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        
+        body.gradient-forest {
+            background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+        }
+        
+        body.gradient-night {
+            background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .nav-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .back-btn {
+            background: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+            text-decoration: none;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        
+        .profile-header {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            display: flex;
+            gap: 40px;
+            align-items: start;
+        }
+        
+        .profile-avatar-section {
+            text-align: center;
+        }
+        
+        .profile-avatar-large {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 4em;
+            font-weight: bold;
+            margin: 0 auto 20px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .profile-avatar-large:hover {
+            transform: scale(1.05);
+        }
+        
+        .profile-avatar-large img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .profile-avatar-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px;
+            font-size: 0.3em;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .profile-avatar-large:hover .profile-avatar-overlay {
+            opacity: 1;
+        }
+        
+        .upload-btn {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .upload-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        .profile-info {
+            flex: 1;
+        }
+        
+        .profile-name {
+            font-size: 2.5em;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        
+        .profile-meta {
+            color: #718096;
+            margin-bottom: 20px;
+        }
+        
+        .theme-selector {
+            margin-top: 20px;
+        }
+        
+        .theme-selector h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        
+        .theme-options {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .theme-option {
+            width: 80px;
+            height: 80px;
+            border-radius: 15px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .theme-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .theme-option.active {
+            border-color: #2d3748;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .theme-option.gradient-purple {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .theme-option.gradient-blue {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .theme-option.gradient-sunset {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        
+        .theme-option.gradient-forest {
+            background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+        }
+        
+        .theme-option.gradient-night {
+            background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
+        }
+        
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .stat-card .label {
+            color: #718096;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px;
+            background: #f7fafc;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+        
+        .chart-container h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .heatmap-container {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .heatmap-day {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            background: #ebedf0;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .heatmap-day:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .heatmap-day::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d3748;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 10;
+        }
+        
+        .heatmap-day:hover::after {
+            opacity: 1;
+        }
+        
+        .heatmap-day.level-0 { background: #ebedf0; }
+        .heatmap-day.level-1 { background: #c6e48b; }
+        .heatmap-day.level-2 { background: #7bc96f; }
+        .heatmap-day.level-3 { background: #239a3b; }
+        .heatmap-day.level-4 { background: #196127; }
+        
+        .hidden {
+            display: none;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body class="gradient-purple">
+    <div class="container">
+        <div class="nav-bar">
+            <a href="/" class="back-btn">
+                <span>←</span>
+                <span>Back to Dashboard</span>
+            </a>
+        </div>
+        
+        <div class="profile-header">
+            <div class="profile-avatar-section">
+                <div class="profile-avatar-large" id="profileAvatar" onclick="document.getElementById('fileUpload').click()">
+                    <span id="profileInitial">P</span>
+                    <div class="profile-avatar-overlay">Change Photo</div>
+                </div>
+                <input type="file" id="fileUpload" accept="image/*" onchange="uploadProfilePicture()">
+                <button class="upload-btn" onclick="document.getElementById('fileUpload').click()">
+                    Upload Photo
+                </button>
+            </div>
+            
+            <div class="profile-info">
+                <h1 class="profile-name" id="profileName">Priyanshi</h1>
+                <p class="profile-meta">
+                    📅 Member since <span id="joinedDate">-</span><br>
+                    🔥 Last active: <span id="lastActive">Today</span>
+                </p>
+                
+                <div class="theme-selector">
+                    <h3>Choose Your Theme</h3>
+                    <div class="theme-options">
+                        <div class="theme-option gradient-purple active" onclick="changeTheme('gradient-purple')" title="Purple Gradient"></div>
+                        <div class="theme-option gradient-blue" onclick="changeTheme('gradient-blue')" title="Blue Wave"></div>
+                        <div class="theme-option gradient-sunset" onclick="changeTheme('gradient-sunset')" title="Sunset Vibes"></div>
+                        <div class="theme-option gradient-forest" onclick="changeTheme('gradient-forest')" title="Forest Green"></div>
+                        <div class="theme-option gradient-night" onclick="changeTheme('gradient-night')" title="Night Sky"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats-overview">
+            <div class="stat-card">
+                <h3>Total Sessions</h3>
+                <div class="value" id="totalSessions">0</div>
+                <div class="label">study sessions</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Study Hours</h3>
+                <div class="value" id="totalHours">0h</div>
+                <div class="label">time invested</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Avg Focus Score</h3>
+                <div class="value" id="avgFocus">0%</div>
+                <div class="label">focus quality</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Current Streak</h3>
+                <div class="value" id="currentStreak">0</div>
+                <div class="label">days active</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Longest Session</h3>
+                <div class="value" id="longestSession">0:00</div>
+                <div class="label">best performance</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Total Alerts</h3>
+                <div class="value" id="totalAlerts">0</div>
+                <div class="label">distractions caught</div>
+            </div>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('day', event)">Today</button>
+            <button class="tab" onclick="switchTab('week', event)">This Week</button>
+            <button class="tab" onclick="switchTab('month', event)">This Month</button>
+        </div>
+        
+        <div id="dayTab" class="tab-content">
+            <div class="stats-overview">
+                <div class="stat-card">
+                    <h3>Today's Study Time</h3>
+                    <div class="value" id="dayStudyTime">0h</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Sessions</h3>
+                    <div class="value" id="daySessions">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Avg Focus Score</h3>
+                    <div class="value" id="dayFocusScore">0%</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Alerts</h3>
+                    <div class="value" id="dayAlerts">0</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h2>Today's Performance</h2>
+                <canvas id="dayChart"></canvas>
+            </div>
+        </div>
+        
+        <div id="weekTab" class="tab-content hidden">
+            <div class="stats-overview">
+                <div class="stat-card">
+                    <h3>Week's Study Time</h3>
+                    <div class="value" id="weekStudyTime">0h</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Sessions</h3>
+                    <div class="value" id="weekSessions">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Avg Focus Score</h3>
+                    <div class="value" id="weekFocusScore">0%</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Daily Average</h3>
+                    <div class="value" id="weekAvg">0h</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h2>Weekly Activity</h2>
+                <canvas id="weekChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h2>Week Activity Heatmap</h2>
+                <div id="weekHeatmap" class="heatmap-container"></div>
+            </div>
+        </div>
+        
+        <div id="monthTab" class="tab-content hidden">
+            <div class="stats-overview">
+                <div class="stat-card">
+                    <h3>Month's Study Time</h3>
+                    <div class="value" id="monthStudyTime">0h</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Sessions</h3>
+                    <div class="value" id="monthSessions">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Avg Focus Score</h3>
+                    <div class="value" id="monthFocusScore">0%</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Best Day</h3>
+                    <div class="value" id="monthBestDay">-</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h2>Monthly Progress</h2>
+                <canvas id="monthChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h2>Monthly Activity Heatmap</h2>
+                <div id="monthHeatmap" class="heatmap-container"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let dayChart, weekChart, monthChart;
+        let currentUserName = 'Priyanshi';
+        let currentTab = 'day';
+        
+        async function loadProfile() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const userName = urlParams.get('name') || 'Priyanshi';
+            currentUserName = userName;
+            
+            try {
+                const response = await fetch(`/user/profile?name=${userName}`);
+                const data = await response.json();
+                
+                // Apply theme
+                document.body.className = data.background_theme || 'gradient-purple';
+                document.querySelectorAll('.theme-option').forEach(opt => {
+                    opt.classList.remove('active');
+                    if (opt.classList.contains(data.background_theme)) {
+                        opt.classList.add('active');
+                    }
+                });
+                
+                // Update profile info
+                document.getElementById('profileName').textContent = data.user_name;
+                document.getElementById('joinedDate').textContent = new Date(data.joined_date).toLocaleDateString();
+                
+                // Update profile picture
+                const avatar = document.getElementById('profileAvatar');
+                const initial = document.getElementById('profileInitial');
+                if (data.profile_picture) {
+                    initial.style.display = 'none';
+                    const img = document.createElement('img');
+                    img.src = data.profile_picture;
+                    img.alt = data.user_name;
+                    avatar.appendChild(img);
+                } else {
+                    initial.textContent = data.user_name.charAt(0).toUpperCase();
+                    initial.style.display = 'block';
+                }
+                
+                // Update stats
+                document.getElementById('totalSessions').textContent = data.stats.total_sessions;
+                document.getElementById('totalHours').textContent = data.stats.total_study_hours + 'h';
+                document.getElementById('avgFocus').textContent = data.stats.average_focus_score + '%';
+                document.getElementById('currentStreak').textContent = data.stats.current_streak;
+                document.getElementById('longestSession').textContent = formatTime(data.stats.longest_session);
+                document.getElementById('totalAlerts').textContent = data.stats.total_alerts;
+                
+                // Load analytics for current tab
+                loadAnalytics('day');
+                
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+        
+        async function uploadProfilePicture() {
+            const fileInput = document.getElementById('fileUpload');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('user_name', currentUserName);
+            
+            try {
+                const response = await fetch('/user/profile/picture', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Update avatar display
+                    const avatar = document.getElementById('profileAvatar');
+                    const initial = document.getElementById('profileInitial');
+                    initial.style.display = 'none';
+                    
+                    // Remove any existing image
+                    const existingImg = avatar.querySelector('img');
+                    if (existingImg) {
+                        existingImg.remove();
+                    }
+                    
+                    const img = document.createElement('img');
+                    img.src = data.url;
+                    img.alt = currentUserName;
+                    avatar.appendChild(img);
+                    
+                    alert('Profile picture updated!');
+                }
+            } catch (error) {
+                console.error('Error uploading picture:', error);
+                alert('Failed to upload picture');
+            }
+        }
+        
+        async function changeTheme(theme) {
+            document.body.className = theme;
+            
+            document.querySelectorAll('.theme-option').forEach(opt => {
+                opt.classList.remove('active');
+                if (opt.classList.contains(theme)) {
+                    opt.classList.add('active');
+                }
+            });
+            
+            try {
+                await fetch('/user/profile', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_name: currentUserName,
+                        background_theme: theme
+                    })
+                });
+            } catch (error) {
+                console.error('Error updating theme:', error);
+            }
+        }
+        
+        function switchTab(tab, event) {
+            currentTab = tab;
+            
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            
+            loadAnalytics(tab);
+        }
+        
+        async function loadAnalytics(period) {
+            try {
+                const response = await fetch(`/analytics/${period}?name=${currentUserName}`);
+                const data = await response.json();
+                const analytics = data.analytics;
+                
+                const prefix = period;
+                document.getElementById(prefix + 'StudyTime').textContent = analytics.total_studying_hours + 'h';
+                document.getElementById(prefix + 'Sessions').textContent = analytics.total_sessions;
+                document.getElementById(prefix + 'FocusScore').textContent = analytics.focus_score + '%';
+                
+                if (period === 'day') {
+                    document.getElementById('dayAlerts').textContent = analytics.total_alerts;
+                    renderDayChart(analytics.daily_breakdown);
+                } else if (period === 'week') {
+                    document.getElementById('weekAvg').textContent = 
+                        (analytics.total_studying_hours / 7).toFixed(1) + 'h';
+                    renderWeekChart(analytics.daily_breakdown);
+                    renderHeatmap('weekHeatmap', analytics.daily_breakdown, 7);
+                } else if (period === 'month') {
+                    const dailyData = analytics.daily_breakdown;
+                    let bestDay = '-';
+                    let maxTime = 0;
+                    for (const [day, data] of Object.entries(dailyData)) {
+                        if (data.studying > maxTime) {
+                            maxTime = data.studying;
+                            bestDay = new Date(day).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'});
+                        }
+                    }
+                    document.getElementById('monthBestDay').textContent = bestDay;
+                    renderMonthChart(analytics.daily_breakdown);
+                    renderHeatmap('monthHeatmap', analytics.daily_breakdown, 30);
+                }
+                
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+            }
+        }
+        
+        function renderDayChart(dailyData) {
+            const ctx = document.getElementById('dayChart');
+            if (!ctx) return;
+            
+            if (dayChart) dayChart.destroy();
+            
+            const today = new Date().toISOString().split('T')[0];
+            const data = dailyData[today] || {studying: 0, distracted: 0, sessions: 0};
+            
+            const studyMinutes = (data.studying / 60).toFixed(0);
+            const awayMinutes = (data.distracted / 60).toFixed(0);
+            
+            dayChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Studying', 'Away/Distracted'],
+                    datasets: [{
+                        label: 'Time (minutes)',
+                        data: [studyMinutes, awayMinutes],
+                        backgroundColor: ['#48bb78', '#ed8936']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${data.sessions} sessions today`
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Minutes'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderWeekChart(dailyData) {
+            const ctx = document.getElementById('weekChart');
+            if (!ctx) return;
+            
+            if (weekChart) weekChart.destroy();
+            
+            const labels = [];
+            const studyData = [];
+            
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateKey = date.toISOString().split('T')[0];
+                
+                labels.push(date.toLocaleDateString('en-US', {weekday: 'short'}));
+                const dayData = dailyData[dateKey] || {studying: 0};
+                studyData.push((dayData.studying / 3600).toFixed(1));
+            }
+            
+            weekChart = new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Study Hours',
+                        data: studyData,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderMonthChart(dailyData) {
+            const ctx = document.getElementById('monthChart');
+            if (!ctx) return;
+            
+            if (monthChart) monthChart.destroy();
+            
+            const labels = [];
+            const studyData = [];
+            
+            for (let i = 29; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateKey = date.toISOString().split('T')[0];
+                
+                if (i % 3 === 0) {
+                    labels.push(date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'}));
+                } else {
+                    labels.push('');
+                }
+                
+                const dayData = dailyData[dateKey] || {studying: 0};
+                studyData.push((dayData.studying / 3600).toFixed(1));
+            }
+            
+            monthChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Study Hours',
+                        data: studyData,
+                        backgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderHeatmap(containerId, dailyData, days) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            const today = new Date();
+            for (let i = days - 1; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateKey = date.toISOString().split('T')[0];
+                
+                const dayData = dailyData[dateKey];
+                const hours = dayData ? (dayData.studying / 3600).toFixed(1) : 0;
+                
+                let level = 0;
+                if (hours > 0) level = 1;
+                if (hours > 1) level = 2;
+                if (hours > 2) level = 3;
+                if (hours > 3) level = 4;
+                
+                const box = document.createElement('div');
+                box.className = `heatmap-day level-${level}`;
+                box.setAttribute('data-tooltip', `${date.toLocaleDateString()}: ${hours}h`);
+                container.appendChild(box);
+            }
+        }
+        
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            
+            seconds = Math.floor(seconds);
+            const hours = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            
+            if (hours > 0) {
+                return `${hours}:${mins.toString().padStart(2, '0')}`;
+            }
+            return `${mins}:00`;
+        }
+        
+        // Load profile on page load
+        loadProfile();
+    </script>
+</body>
+</html>

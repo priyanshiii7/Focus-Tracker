@@ -1,6 +1,20 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+
+class SessionStart(BaseModel):
+    user_name: str
+
+class AlertSettings(BaseModel):
+    alert_preference: str  # "both", "voice", "text", "none"
+
+class UserProfileUpdate(BaseModel):
+    user_name: str
+    background_theme: Optional[str] = "gradient-purple"
+    profile_picture: Optional[str] = None
 
 class User(BaseModel):
     name: str
