@@ -312,7 +312,17 @@ async def get_user_profile(name: str):
     }
 
 def update_user_profile(user_name, updates):
-    raise NotImplementedError
+    """Update user profile in database"""
+    user = users_collection.find_one({"name": user_name})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    users_collection.update_one(
+        {"_id": user["_id"]},
+        {"$set": updates}
+    )
+    
+    return users_collection.find_one({"_id": user["_id"]})
 
 @app.post("/user/profile")
 async def update_user_profile_settings(profile: UserProfileUpdate):
@@ -321,15 +331,35 @@ async def update_user_profile_settings(profile: UserProfileUpdate):
     if profile.background_theme:
         updates["background_theme"] = profile.background_theme
     
+    # Handle username change
+    if hasattr(profile, 'new_name') and profile.new_name:
+        # Check if new name already exists
+        existing_user = users_collection.find_one({"name": profile.new_name})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already taken")
+        
+        updates["name"] = profile.new_name
+    
     user = update_user_profile(profile.user_name, updates)
     
     return {
         "message": "Profile updated",
-        "background_theme": user.get("background_theme")
+        "background_theme": user.get("background_theme"),
+        "user_name": user.get("name")
     }
 
 def upload_profile_picture(user_name: str, url: str):
-    raise NotImplementedError
+    """Upload profile picture URL to database"""
+    user = users_collection.find_one({"name": user_name})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    users_collection.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"profile_picture": url}}
+    )
+    
+    return users_collection.find_one({"_id": user["_id"]})
 
 @app.post("/user/profile/picture")
 async def upload_profile_picture_endpoint(
@@ -338,6 +368,10 @@ async def upload_profile_picture_endpoint(
 ):
     """Upload profile picture"""
     try:
+        # Validate file type
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
         # Generate unique filename
         file_extension = os.path.splitext(file.filename)[1]
         filename = f"{user_name}_{int(time.time())}{file_extension}"
@@ -355,6 +389,8 @@ async def upload_profile_picture_endpoint(
             "message": "Profile picture uploaded",
             "url": url
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error uploading file: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload picture")

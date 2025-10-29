@@ -177,7 +177,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
-            margin-bottom: 25px;
+            margin-bottom: 5px;
         }
         
         .stat-card {
@@ -335,12 +335,13 @@
                 <h1>📚 Focus Tracker</h1>
                 <p>AI-powered study session monitor</p>
             </div>
-            <a href="profile.html" class="profile-button" id="profileBtn" onclick="goToProfile()">
-                <div class="profile-avatar" id="profileAvatar">
-                    <span id="profileInitial">P</span>
-                </div>
-                <span id="profileNameShort">Priyanshi</span>
-            </a>
+          <a href="#" class="profile-button" id="profileBtn" onclick="goToProfile(); return false;">
+            <div class="profile-avatar" id="profileAvatar">
+                <span id="profileInitial">P</span>
+            </div>
+            <span id="profileNameShort">Priyanshi</span>
+        </a>
+
         </div>
         
         <div class="controls">
@@ -423,13 +424,13 @@
         </div>
     </div>
     
-    <div id="videoPreview" class="video-preview hidden">
+    <!-- <div id="videoPreview" class="video-preview hidden">
         <div class="video-preview-header">
             <span><span class="camera-indicator"></span>Live</span>
             <span id="videoStatus">Monitoring</span>
         </div>
         <img id="videoFeed" src="" alt="Live camera feed">
-    </div>
+    </div> -->
     
     <script>
         let updateInterval = null;
@@ -437,22 +438,24 @@
         let timeChart, focusTimeline;
         let currentUserName = 'Priyanshi';
         
-        async function loadUserSettings() {
-            const userName = document.getElementById('userName').value;
-            try {
-                const response = await fetch(`/user/profile?name=${userName}`);
-                const data = await response.json();
-                
-                // Apply background theme
-                document.body.className = data.background_theme || 'gradient-purple';
-                
-                // Update profile display
-                updateProfileDisplay(data);
-            } catch (error) {
-                console.error('Error loading user settings:', error);
-            }
-        }
+// Change the loadUserSettings function:
+async function loadUserSettings() {
+    const userName = document.getElementById('userName').value;
+    if (!userName) return; // Don't load if no username
+    
+    try {
+        const response = await fetch(`/user/profile?name=${userName}`);
+        if (!response.ok) return; // User doesn't exist yet
         
+        const data = await response.json();
+        document.body.className = data.background_theme || 'gradient-purple';
+        updateProfileDisplay(data);
+    } catch (error) {
+        console.error('Error loading user settings:', error);
+    }
+}
+
+
         function updateProfileDisplay(userData) {
             const profileAvatar = document.getElementById('profileAvatar');
             const profileInitial = document.getElementById('profileInitial');
@@ -726,7 +729,8 @@
         }
         
         // Load user settings on page load
-        loadUserSettings();
+document.getElementById('userName').addEventListener('change', loadUserSettings);
+
     </script>
 </body>
 </html>
