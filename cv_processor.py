@@ -11,72 +11,40 @@ class FocusDetector:
         self.mp_face_detection = mp.solutions.face_detection
         
         self.face_detection = self.mp_face_detection.FaceDetection(
-            min_detection_confidence=0.3,  # Lower threshold for better detection
+            min_detection_confidence=0.3,
             model_selection=0
         )
         
         self.frames_without_face = 0
-        self.away_threshold = 10  # ~5 seconds at 0.5s intervals
+        self.away_threshold = 10
         
     def detect_status(self, frame):
-        """
-        Analyze frame and return current status
-        Returns: "studying" or "away"
-        """
+        """Analyze frame and return current status"""
         if frame is None:
             return "away"
             
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Run face detection only (removed phone detection)
         face_results = self.face_detection.process(rgb_frame)
         
-        # Check if face is detected
         if not face_results.detections:
             self.frames_without_face += 1
             
-            # Only mark as away after threshold
             if self.frames_without_face >= self.away_threshold:
-                if self.frames_without_face % 20 == 0:  # Log every 10 seconds
-                    print(f"⚠ No face - frame count: {self.frames_without_face}")
                 return "away"
             else:
-                return "studying"  # Grace period
+                return "studying"
         else:
-            # Face detected - reset counter
             was_away = self.frames_without_face >= self.away_threshold
             self.frames_without_face = 0
             
             if was_away:
                 print("✅ Face detected - back to studying")
             
-            # Always studying when face is visible
             return "studying"
-    
-    def _is_phone_detected(self, hands_results, face_results):
-        """Detect if hand is near face (phone usage)"""
-        try:
-            face_box = face_results.detections[0].location_data.relative_bounding_box
-            face_center_x = face_box.xmin + face_box.width / 2
-            face_center_y = face_box.ymin + face_box.height / 2
-            
-            for hand_landmarks in hands_results.multi_hand_landmarks:
-                wrist = hand_landmarks.landmark[self.mp_hands.HandLandmark.WRIST]
-                
-                # Calculate distance
-                distance = ((face_center_x - wrist.x)**2 + (face_center_y - wrist.y)**2)**0.5
-                
-                if distance < 0.25:
-                    return True
-            
-            return False
-        except:
-            return False
     
     def cleanup(self):
         """Release resources"""
         self.face_detection.close()
-        self.hands.close()
 
 
 class AlertSystem:
@@ -84,7 +52,7 @@ class AlertSystem:
         self.mode = mode
         self.engine = None
         self.last_alert_time = 0
-        self.alert_cooldown = 60  # 1 MINUTE between alerts
+        self.alert_cooldown = 30  # 30 seconds for testing (change to 60 for production)
         self.is_speaking = False
         
         if mode in ["voice", "both"]:
@@ -128,10 +96,12 @@ class AlertSystem:
             "alert_level": alert_type
         }
         
-        print(f"🔔 ALERT: {message}")
+        print(f"🔔 ALERT TRIGGERED: {message}")
+        print(f"   Alert type: {self.mode}")
         
         # Voice alert (non-blocking)
         if self.mode in ["voice", "both"] and self.engine and not self.is_speaking:
+            print("   Starting voice alert...")
             threading.Thread(target=self._speak, args=(message,), daemon=True).start()
         
         return alert_data
@@ -157,13 +127,13 @@ class CVProcessor:
         # Try to open camera
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
-            print("⚠ Camera failed to open, trying alternate...")
             self.cap = cv2.VideoCapture(1)
         
-        # Set camera properties for better performance
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        self.cap.set(cv2.CAP_PROP_FPS, 30)
+        # Ultra-optimized camera settings
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 240)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 180)
+        self.cap.set(cv2.CAP_PROP_FPS, 10)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
         self.is_running = False
         self.callback = callback
@@ -171,30 +141,26 @@ class CVProcessor:
         
         # Timing
         self.away_start_time = None
-        self.distraction_start_time = None
-        self.last_alert_time = 0
         self.away_warnings = 0
-        self.alert_interval = 60  # Alert every 60 seconds (1 MINUTE)
+        self.last_alert_time = 0
+        self.alert_interval = 30  # Alert every 30 seconds for testing (60 for production)
         
         # Video streaming
         self.latest_frame = None
         self.frame_lock = threading.Lock()
         
         print("✓ CV Processor initialized")
+        print(f"✓ Alert mode: {alert_mode}")
         
     def start(self):
         """Start the CV processing loop"""
         self.is_running = True
         print("🎥 CV Processor started - monitoring...")
         
-        frame_count = 0
-        
         while self.is_running:
             ret, frame = self.cap.read()
-            frame_count += 1
             
             if not ret or frame is None:
-                print(f"⚠ Frame grab failed (frame {frame_count})")
                 time.sleep(0.1)
                 continue
             
@@ -202,13 +168,13 @@ class CVProcessor:
             with self.frame_lock:
                 self.latest_frame = frame.copy()
             
-            # Detect status every frame
+            # Detect status
             status = self.detector.detect_status(frame)
             current_time = time.time()
             
             # Status change callback
             if status != self.current_status:
-                print(f"🔄 Status: {self.current_status} → {status}")
+                print(f"🔄 Status changed: {self.current_status} → {status}")
                 self.current_status = status
                 
                 if self.callback:
@@ -218,21 +184,37 @@ class CVProcessor:
             if status == "away":
                 if self.away_start_time is None:
                     self.away_start_time = current_time
+                    print(f"⏱ User went away at {datetime.now().strftime('%H:%M:%S')}")
                 
                 time_away = current_time - self.away_start_time
                 
-                # Alert every 60 seconds (1 minute)
-                if time_away >= 60 and (current_time - self.last_alert_time) >= self.alert_interval:
+                # Alert every interval
+                if time_away >= self.alert_interval and (current_time - self.last_alert_time) >= self.alert_interval:
                     self.away_warnings += 1
+                    
+                    print(f"\n{'='*60}")
+                    print(f"🚨 WARNING #{self.away_warnings}")
+                    print(f"   Time away: {time_away:.0f}s")
+                    print(f"   Triggering alert...")
+                    
                     alert = self.alert_system.trigger_alert(status, "warning")
+                    
+                    if alert:
+                        print(f"   ✅ Alert created successfully")
+                        print(f"   Message: {alert['message']}")
+                        print(f"   Type: {alert['type']}")
+                        
+                        if self.callback:
+                            print(f"   Sending alert to callback...")
+                            self.callback(status, alert)
+                    else:
+                        print(f"   ❌ Alert was None (cooldown active)")
+                    
+                    print(f"{'='*60}\n")
+                    
                     self.last_alert_time = current_time
                     
-                    print(f"🚨 WARNING #{self.away_warnings}: {time_away:.0f}s away - ALERT TRIGGERED!")
-                    
-                    if alert and self.callback:
-                        self.callback(status, alert)
-                    
-                    # End session after 3 warnings (3 minutes)
+                    # End session after 3 warnings
                     if self.away_warnings >= 3:
                         print("❌ 3 warnings reached! Ending session...")
                         if self.callback:
@@ -245,12 +227,13 @@ class CVProcessor:
             else:
                 # Reset away tracking
                 if self.away_start_time is not None:
+                    print(f"✅ User back to studying - warnings reset")
                     self.away_start_time = None
                     self.away_warnings = 0
-                    print("✅ Back to studying - warnings reset")
             
-            # Sleep for 500ms
             time.sleep(0.5)
+        
+        print("🛑 CV Processing loop ended")
     
     def get_frame(self):
         """Get latest frame for streaming"""
@@ -263,9 +246,11 @@ class CVProcessor:
         """Stop the CV processing"""
         print("🛑 Stopping CV processor...")
         self.is_running = False
+        time.sleep(0.2)
         if self.cap:
             self.cap.release()
         self.detector.cleanup()
+        print("✓ CV processor stopped")
     
     def get_current_status(self):
         """Get current focus status"""
@@ -274,4 +259,4 @@ class CVProcessor:
     def set_alert_mode(self, mode):
         """Change alert mode"""
         self.alert_system = AlertSystem(mode=mode)
-        print(f"🔔 Alert mode: {mode}")
+        print(f"🔔 Alert mode changed to: {mode}")
