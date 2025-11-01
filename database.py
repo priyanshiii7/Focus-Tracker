@@ -2,7 +2,6 @@ from pymongo import MongoClient
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
-import base64
 from bson import ObjectId
 
 load_dotenv()
@@ -15,20 +14,110 @@ db = client["focus_tracker"]
 # Collections
 users_collection = db["users"]
 sessions_collection = db["sessions"]
+app_stats_collection = db["app_stats"]  # New collection for app-wide statistics
+
+# Create indexes
+users_collection.create_index("email", unique=True)
+users_collection.create_index("name")
+sessions_collection.create_index("user_id")
+sessions_collection.create_index("start_time")
+
+def initialize_app_stats():
+    """Initialize app statistics if not exists"""
+    if not app_stats_collection.find_one({"_id": "global_stats"}):
+        app_stats_collection.insert_one({
+            "_id": "global_stats",
+            "total_users": 0,
+            "total_sessions": 0,
+            "total_study_hours": 0,
+            "created_at": datetime.utcnow(),
+            "last_updated": datetime.utcnow()
+        })
+        print("✅ App statistics initialized")
+
+# Initialize on import
+initialize_app_stats()
+
+def increment_user_count():
+    """Increment total user count"""
+    app_stats_collection.update_one(
+        {"_id": "global_stats"},
+        {
+            "$inc": {"total_users": 1},
+            "$set": {"last_updated": datetime.utcnow()}
+        }
+    )
+
+def get_app_stats():
+    """Get application-wide statistics"""
+    stats = app_stats_collection.find_one({"_id": "global_stats"})
+    if not stats:
+        return {
+            "total_users": 0,
+            "total_sessions": 0,
+            "total_study_hours": 0
+        }
+    return {
+        "total_users": stats.get("total_users", 0),
+        "total_sessions": stats.get("total_sessions", 0),
+        "total_study_hours": round(stats.get("total_study_hours", 0), 1),
+        "created_at": stats.get("created_at"),
+        "last_updated": stats.get("last_updated")
+    }
+
+def create_user(name: str, email: str, password_hash: str):
+    """Create a new user"""
+    user = {
+        "name": name,
+        "email": email,
+        "password": password_hash,
+        "created_at": datetime.utcnow(),
+        "total_sessions": 0,
+        "total_focus_hours": 0.0,
+        "background_theme": "gradient-purple",
+        "profile_picture": None,
+        "alert_preference": "both",
+        "last_login": datetime.utcnow()
+    }
+    
+    result = users_collection.insert_one(user)
+    user["_id"] = result.inserted_id
+    
+    # Increment global user count
+    increment_user_count()
+    
+    print(f"✅ New user created: {name} ({email})")
+    return user
+
+def update_last_login(user_id):
+    """Update user's last login timestamp"""
+    users_collection.update_one(
+        {"_id": user_id},
+        {"$set": {"last_login": datetime.utcnow()}}
+    )
+
+def get_user_by_email(email: str):
+    """Get user by email"""
+    return users_collection.find_one({"email": email})
+
+def get_user_by_id(user_id):
+    """Get user by ID"""
+    return users_collection.find_one({"_id": user_id})
 
 def get_or_create_user(name: str, email: str = None):
-    """Get existing user or create new one"""
+    """Get existing user or create new one (for backward compatibility)"""
     user = users_collection.find_one({"name": name})
     
     if not user:
         user = {
             "name": name,
             "email": email,
+            "password": None,  # For users created without authentication
             "created_at": datetime.utcnow(),
             "total_sessions": 0,
             "total_focus_hours": 0.0,
             "background_theme": "gradient-purple",
-            "profile_picture_data": None,  # Store base64 image data
+            "profile_picture": None,
             "alert_preference": "both"
         }
         result = users_collection.insert_one(user)
@@ -85,14 +174,28 @@ def end_session(session_id, metrics: dict):
         {"$set": update_data}
     )
     
+    study_hours = metrics.get("studying_time", 0) / 3600
+    
     # Update user's total stats
     users_collection.update_one(
         {"_id": session["user_id"]},
         {
             "$inc": {
                 "total_sessions": 1,
-                "total_focus_hours": metrics.get("studying_time", 0) / 3600
+                "total_focus_hours": study_hours
             }
+        }
+    )
+    
+    # Update global stats
+    app_stats_collection.update_one(
+        {"_id": "global_stats"},
+        {
+            "$inc": {
+                "total_sessions": 1,
+                "total_study_hours": study_hours
+            },
+            "$set": {"last_updated": datetime.utcnow()}
         }
     )
 
@@ -110,7 +213,8 @@ def get_user_lifetime_stats(user_id):
             "average_focus_score": 0,
             "total_alerts": 0,
             "longest_session": 0,
-            "current_streak": 0
+            "current_streak": 0,
+            "best_focus_score": 0
         }
     
     # Calculate totals
@@ -121,6 +225,7 @@ def get_user_lifetime_stats(user_id):
     focus_scores = [s.get("metrics", {}).get("focus_score", 0) for s in all_sessions 
                    if s.get("metrics", {}).get("focus_score", 0) > 0]
     avg_focus_score = sum(focus_scores) / len(focus_scores) if focus_scores else 0
+    best_focus_score = max(focus_scores) if focus_scores else 0
     
     # Longest session
     longest_session = max([s.get("metrics", {}).get("studying_time", 0) for s in all_sessions], default=0)
@@ -141,6 +246,7 @@ def get_user_lifetime_stats(user_id):
         "total_sessions": len(all_sessions),
         "total_study_hours": round(total_studying / 3600, 1),
         "average_focus_score": round(avg_focus_score, 1),
+        "best_focus_score": round(best_focus_score, 1),
         "total_alerts": total_alerts,
         "longest_session": int(longest_session),
         "current_streak": current_streak
@@ -200,20 +306,34 @@ def get_analytics_for_period(user_id, period: str):
         "daily_breakdown": daily_breakdown
     }
 
-def save_profile_picture(user_name: str, image_data: bytes):
-    """Save profile picture as base64 in database"""
-    base64_image = base64.b64encode(image_data).decode('utf-8')
+def get_all_users_summary():
+    """Get summary of all users (admin function)"""
+    total_users = users_collection.count_documents({})
     
-    users_collection.update_one(
-        {"name": user_name},
-        {"$set": {"profile_picture_data": base64_image}}
-    )
+    # Users registered today
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    new_users_today = users_collection.count_documents({
+        "created_at": {"$gte": today_start}
+    })
     
-    return base64_image
+    # Active users (logged in within last 7 days)
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    active_users = users_collection.count_documents({
+        "last_login": {"$gte": week_ago}
+    })
+    
+    return {
+        "total_users": total_users,
+        "new_users_today": new_users_today,
+        "active_users_7_days": active_users
+    }
 
-def get_profile_picture(user_name: str):
-    """Get profile picture from database"""
-    user = users_collection.find_one({"name": user_name})
-    if user and user.get("profile_picture_data"):
-        return user["profile_picture_data"]
-    return None
+# Print initial stats when module loads
+try:
+    stats = get_app_stats()
+    print(f"\n📊 Focus Tracker Statistics:")
+    print(f"   Total Users: {stats['total_users']}")
+    print(f"   Total Sessions: {stats['total_sessions']}")
+    print(f"   Total Study Hours: {stats['total_study_hours']}\n")
+except Exception as e:
+    print(f"⚠️  Could not load app statistics: {e}")

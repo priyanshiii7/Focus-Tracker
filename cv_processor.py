@@ -43,10 +43,14 @@ class FocusDetector:
             return "studying"
     
     def cleanup(self):
-        """Release resources"""
-        self.face_detection.close()
-
-
+        """Clean up MediaPipe resources"""
+        try:
+            if self.face_detection is not None and hasattr(self.face_detection, 'close'):
+                self.face_detection.close()
+                self.face_detection = None
+        except Exception as e:
+            print(f"⚠️  Error cleaning up face detection: {e}")
+        
 class AlertSystem:
     def __init__(self, mode="both"):
         self.mode = mode

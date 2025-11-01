@@ -60,6 +60,12 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
         
+        .user-section {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
         .profile-button {
             background: white;
             padding: 15px 30px;
@@ -78,6 +84,23 @@
         .profile-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        
+        .logout-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 50px;
+            border: 2px solid white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+        
+        .logout-btn:hover {
+            background: white;
+            color: #667eea;
         }
         
         .profile-avatar {
@@ -141,11 +164,58 @@
             flex-wrap: wrap;
         }
         
-        .controls input, .controls select {
+        .controls select, .controls input[type="number"] {
             padding: 12px 20px;
             font-size: 16px;
             border: 2px solid #667eea;
             border-radius: 8px;
+        }
+
+        .timer-setup {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .timer-setup label {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .timer-setup input {
+            width: 80px;
+        }
+
+        .timer-display {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 3em;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            margin-bottom: 25px;
+            display: none;
+        }
+
+        .timer-display.active {
+            display: block;
+        }
+
+        .timer-display.warning {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            animation: pulse-timer 1s infinite;
+        }
+
+        .timer-display.critical {
+            background: linear-gradient(135deg, #e53e3e, #c53030);
+            animation: pulse-timer 0.5s infinite;
+        }
+
+        @keyframes pulse-timer {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
         
         .btn {
@@ -249,57 +319,6 @@
             display: none;
         }
         
-        .video-preview {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 320px;
-            height: 240px;
-            background: #000;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-            border: 4px solid #667eea;
-            z-index: 999;
-        }
-        
-        .video-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .video-preview-header {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: rgba(102, 126, 234, 0.95);
-            color: white;
-            padding: 8px 12px;
-            font-size: 0.85em;
-            font-weight: 600;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 1;
-        }
-        
-        .camera-indicator {
-            width: 8px;
-            height: 8px;
-            background: #48bb78;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 6px;
-            animation: blink 2s infinite;
-        }
-        
-        @keyframes blink {
-            0%, 50%, 100% { opacity: 1; }
-            25%, 75% { opacity: 0.3; }
-        }
-        
         .alerts-list {
             max-height: 250px;
             overflow-y: auto;
@@ -321,12 +340,81 @@
             border-radius: 15px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
+
+        .completion-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .completion-modal.show {
+            display: flex;
+        }
+
+        .completion-content {
+            background: white;
+            padding: 50px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .completion-content h2 {
+            color: #48bb78;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+
+        .completion-content p {
+            color: #2d3748;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+        }
+
+        .completion-content button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body class="gradient-purple">
     <div id="alertBanner" class="alert-banner">
         ⚠️ GET BACK TO WORK! ⚠️<br>
         <span style="font-size: 0.5em;">Focus on your studies NOW!</span>
+    </div>
+
+    <div id="completionModal" class="completion-modal">
+        <div class="completion-content">
+            <h2>🎉 Session Complete!</h2>
+            <p>Great job! You've completed your study session.</p>
+            <div id="completionStats" style="margin: 20px 0; color: #718096;"></div>
+            <button onclick="closeCompletionModal()">View Results</button>
+        </div>
     </div>
     
     <div class="container">
@@ -335,18 +423,29 @@
                 <h1>📚 Focus Tracker</h1>
                 <p>AI-powered study session monitor</p>
             </div>
-          <a href="#" class="profile-button" id="profileBtn" onclick="goToProfile(); return false;">
-            <div class="profile-avatar" id="profileAvatar">
-                <span id="profileInitial">P</span>
+            <div class="user-section">
+                <a href="/profile" class="profile-button" id="profileBtn">
+                    <div class="profile-avatar" id="profileAvatar">
+                        <span id="profileInitial">U</span>
+                    </div>
+                    <span id="profileNameShort">Loading...</span>
+                </a>
+                <a href="/logout" class="logout-btn">Logout</a>
             </div>
-            <span id="profileNameShort">Priyanshi</span>
-        </a>
+        </div>
 
+        <div id="timerDisplay" class="timer-display">
+            <div id="timerText">00:00</div>
+            <div style="font-size: 0.3em; margin-top: 10px;">Time Remaining</div>
         </div>
         
         <div class="controls">
             <div class="controls-row">
-                <input type="text" id="userName" placeholder="Enter your name" value="Priyanshi">
+                <div class="timer-setup" id="timerSetup">
+                    <label>⏱️ Timer:</label>
+                    <input type="number" id="timerMinutes" min="1" max="180" value="25" placeholder="Minutes">
+                    <span style="color: #718096;">minutes</span>
+                </div>
                 <select id="alertMode">
                     <option value="both">Voice + Text Alerts</option>
                     <option value="voice">Voice Only</option>
@@ -420,73 +519,66 @@
         
         <div id="noSession" class="chart-container">
             <h2>No Active Session</h2>
-            <p>Start a session to begin tracking your study time!</p>
+            <p>Set a timer and start a session to begin tracking your study time!</p>
         </div>
     </div>
     
-    <!-- <div id="videoPreview" class="video-preview hidden">
-        <div class="video-preview-header">
-            <span><span class="camera-indicator"></span>Live</span>
-            <span id="videoStatus">Monitoring</span>
-        </div>
-        <img id="videoFeed" src="" alt="Live camera feed">
-    </div> -->
-    
     <script>
         let updateInterval = null;
+        let timerInterval = null;
         let sessionActive = false;
         let timeChart, focusTimeline;
-        let currentUserName = 'Priyanshi';
+        let currentUser = null;
+        let timerEndTime = null;
+        let timerDuration = 0;
         
-// Change the loadUserSettings function:
-async function loadUserSettings() {
-    const userName = document.getElementById('userName').value;
-    if (!userName) return; // Don't load if no username
-    
-    try {
-        const response = await fetch(`/user/profile?name=${userName}`);
-        if (!response.ok) return; // User doesn't exist yet
-        
-        const data = await response.json();
-        document.body.className = data.background_theme || 'gradient-purple';
-        updateProfileDisplay(data);
-    } catch (error) {
-        console.error('Error loading user settings:', error);
-    }
-}
-
-
-        function updateProfileDisplay(userData) {
-            const profileAvatar = document.getElementById('profileAvatar');
-            const profileInitial = document.getElementById('profileInitial');
-            const profileNameShort = document.getElementById('profileNameShort');
-            
-            if (userData.profile_picture) {
-                profileInitial.style.display = 'none';
-                const img = document.createElement('img');
-                img.src = userData.profile_picture;
-                img.alt = userData.user_name;
-                profileAvatar.appendChild(img);
-            } else {
-                const initial = userData.user_name.charAt(0).toUpperCase();
-                profileInitial.textContent = initial;
-                profileInitial.style.display = 'block';
+        async function loadUser() {
+            try {
+                const response = await fetch('/api/current-user');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                currentUser = await response.json();
+                
+                // Apply user theme
+                document.body.className = currentUser.background_theme || 'gradient-purple';
+                
+                // Update profile display
+                const profileAvatar = document.getElementById('profileAvatar');
+                const profileInitial = document.getElementById('profileInitial');
+                const profileNameShort = document.getElementById('profileNameShort');
+                
+                if (currentUser.profile_picture) {
+                    profileInitial.style.display = 'none';
+                    const img = document.createElement('img');
+                    img.src = currentUser.profile_picture;
+                    img.alt = currentUser.name;
+                    profileAvatar.appendChild(img);
+                } else {
+                    const initial = currentUser.name.charAt(0).toUpperCase();
+                    profileInitial.textContent = initial;
+                    profileInitial.style.display = 'block';
+                }
+                
+                profileNameShort.textContent = currentUser.name;
+                
+                // Set alert preference
+                document.getElementById('alertMode').value = currentUser.alert_preference || 'both';
+                
+            } catch (error) {
+                console.error('Error loading user:', error);
+                window.location.href = '/login';
             }
-            
-            profileNameShort.textContent = userData.user_name;
-            currentUserName = userData.user_name;
         }
         
-        function goToProfile() {
-            window.location.href = `/profile?name=${currentUserName}`;
-        }
-        
-        async function startSession() {
-            const userName = document.getElementById('userName').value;
+async function startSession() {
             const alertMode = document.getElementById('alertMode').value;
+            const minutes = parseInt(document.getElementById('timerMinutes').value);
             
-            if (!userName) {
-                alert('Please enter your name');
+            if (!minutes || minutes < 1) {
+                alert('Please set a valid timer duration (minimum 1 minute)');
                 return;
             }
             
@@ -500,47 +592,154 @@ async function loadUserSettings() {
                 const response = await fetch('/session/start', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({user_name: userName})
+                    body: JSON.stringify({timer_duration: minutes})
                 });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Session start failed:', errorText);
+                    alert('Failed to start session: ' + errorText);
+                    return;
+                }
                 
                 const data = await response.json();
                 
                 if (response.ok) {
                     sessionActive = true;
+                    timerDuration = minutes * 60; // Convert to seconds
+                    timerEndTime = Date.now() + (timerDuration * 1000);
+                    
+                    console.log('Session started successfully');
+                    console.log('Timer duration:', minutes, 'minutes');
+                    console.log('Timer will end at:', new Date(timerEndTime).toLocaleTimeString());
+                    
                     document.getElementById('startBtn').classList.add('hidden');
                     document.getElementById('endBtn').classList.remove('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
                     document.getElementById('noSession').classList.add('hidden');
-                    document.getElementById('userName').disabled = true;
                     document.getElementById('alertMode').disabled = true;
-                    
-                    document.getElementById('videoPreview').classList.remove('hidden');
-                    startVideoStream();
+                    document.getElementById('timerSetup').style.display = 'none';
+                    document.getElementById('timerDisplay').classList.add('active');
                     
                     initCharts();
                     updateInterval = setInterval(updateStats, 2000);
+                    timerInterval = setInterval(updateTimer, 1000);
                     updateStats();
+                    updateTimer();
+                } else {
+                    console.error('Failed to start session:', await response.text());
+                    alert('Failed to start session. Please check console for details.');
                 }
             } catch (error) {
                 console.error('Error starting session:', error);
                 alert('Failed to start session!');
             }
         }
-        
-        function startVideoStream() {
-            const videoFeed = document.getElementById('videoFeed');
-            videoFeed.src = '/video_feed?t=' + new Date().getTime();
+
+        function updateTimer() {
+            if (!sessionActive || !timerEndTime) {
+                console.log('Timer not updating - sessionActive:', sessionActive, 'timerEndTime:', timerEndTime);
+                return;
+            }
+
+            const now = Date.now();
+            const remaining = Math.max(0, Math.floor((timerEndTime - now) / 1000));
             
-            videoFeed.onerror = function() {
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            
+            const timerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('timerText').textContent = timerText;
+
+            const timerDisplay = document.getElementById('timerDisplay');
+            
+            // Change color based on time remaining
+            if (remaining <= 60) {
+                timerDisplay.classList.add('critical');
+                timerDisplay.classList.remove('warning');
+            } else if (remaining <= 300) {
+                timerDisplay.classList.add('warning');
+                timerDisplay.classList.remove('critical');
+            } else {
+                timerDisplay.classList.remove('warning', 'critical');
+            }
+
+            // Auto-end session when timer reaches zero
+            if (remaining === 0) {
+                console.log('Timer reached zero - ending session');
+                clearInterval(timerInterval);
                 setTimeout(() => {
-                    videoFeed.src = '/video_feed?t=' + new Date().getTime();
-                }, 3000);
-            };
+                    autoEndSession();
+                }, 500);
+            }
+        }
+
+        async function autoEndSession() {
+            if (!sessionActive) return;
+            
+            sessionActive = false;
+            clearInterval(updateInterval);
+            clearInterval(timerInterval);
+            
+            try {
+                const response = await fetch('/session/end', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showCompletionModal(data.final_stats);
+                }
+            } catch (error) {
+                console.error('Error ending session:', error);
+            }
+        }
+
+        function showCompletionModal(stats) {
+            const modal = document.getElementById('completionModal');
+            const statsDiv = document.getElementById('completionStats');
+            
+            statsDiv.innerHTML = `
+                <p><strong>Study Time:</strong> ${formatTime(stats.studying_time)}</p>
+                <p><strong>Focus Score:</strong> ${stats.focus_score}%</p>
+                <p><strong>Alerts:</strong> ${stats.total_alerts}</p>
+            `;
+            
+            modal.classList.add('show');
+            
+            // Play completion sound
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBy/LZgzMIHm3A7+OZQA0PWqzr6qpiGQg+ldb0yH0wBSt+zO/fpUYMFGS56+mmWBYKQ5zd8sBrJAUuhM/z1YU1Bx5xxfDckjgKEly06+qnXBQJPJfT88yALgUrg8vx3Ik5CB1rwO7hmUMNDle05+ijYBoHPZPS9M2GOAgbcMTv3ZU/CxFasvDtpm0gCDyY1PPOgDEGK4LK8dqJOAgaaMDu4JlDDQxWru3ppGATCjqU0/PNgzEGLILK8dqJOAgbacDu4JlDDQxWru3ppGATCjqU0/PNgzEGLILK8duJOAgbacDu4JlDDQxWru3ppGATCjqT0/PNgzEGLILK8duJOAgbacDu4JlDDQ');
+                audio.play();
+            } catch (e) {}
+        }
+
+        function closeCompletionModal() {
+            document.getElementById('completionModal').classList.remove('show');
+            resetUI();
+        }
+
+        function resetUI() {
+            document.getElementById('startBtn').classList.remove('hidden');
+            document.getElementById('endBtn').classList.add('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('noSession').classList.remove('hidden');
+            document.getElementById('alertMode').disabled = false;
+            document.getElementById('timerSetup').style.display = 'flex';
+            document.getElementById('timerDisplay').classList.remove('active', 'warning', 'critical');
+            
+            destroyCharts();
         }
         
         async function endSession() {
             const endBtn = document.getElementById('endBtn');
             if (endBtn.disabled) return;
+            
+            if (!confirm('Are you sure you want to end the session early?')) {
+                return;
+            }
             
             endBtn.disabled = true;
             endBtn.textContent = 'Ending...';
@@ -548,6 +747,7 @@ async function loadUserSettings() {
             try {
                 sessionActive = false;
                 clearInterval(updateInterval);
+                clearInterval(timerInterval);
                 
                 const response = await fetch('/session/end', {
                     method: 'POST',
@@ -558,22 +758,14 @@ async function loadUserSettings() {
                 
                 if (response.ok) {
                     alert(`Session ended!\n\nStudy time: ${formatTime(data.final_stats.studying_time)}\nFocus score: ${data.final_stats.focus_score}%\nAlerts: ${data.final_stats.total_alerts}`);
-                    
-                    document.getElementById('startBtn').classList.remove('hidden');
-                    document.getElementById('endBtn').classList.add('hidden');
-                    document.getElementById('dashboard').classList.add('hidden');
-                    document.getElementById('noSession').classList.remove('hidden');
-                    document.getElementById('userName').disabled = false;
-                    document.getElementById('alertMode').disabled = false;
-                    document.getElementById('videoPreview').classList.add('hidden');
-                    
-                    destroyCharts();
+                    resetUI();
                 }
             } catch (error) {
                 console.error('Error ending session:', error);
                 alert('Error ending session. Please try again.');
                 sessionActive = true;
                 updateInterval = setInterval(updateStats, 2000);
+                timerInterval = setInterval(updateTimer, 1000);
             } finally {
                 endBtn.disabled = false;
                 endBtn.textContent = 'End Session';
@@ -728,9 +920,8 @@ async function loadUserSettings() {
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
         
-        // Load user settings on page load
-document.getElementById('userName').addEventListener('change', loadUserSettings);
-
+        // Load user on page load
+        loadUser();
     </script>
 </body>
 </html>
