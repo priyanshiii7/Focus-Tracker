@@ -9,7 +9,7 @@ import numpy as np
 class FocusDetector:
     def __init__(self):
         self.mp_face_detection = mp.solutions.face_detection
-        
+        self.frames_with_face = 0
         self.face_detection = self.mp_face_detection.FaceDetection(
             min_detection_confidence=0.3,
             model_selection=0
@@ -28,19 +28,20 @@ class FocusDetector:
         
         if not face_results.detections:
             self.frames_without_face += 1
-            
+            self.frames_with_face = 0
+
             if self.frames_without_face >= self.away_threshold:
                 return "away"
             else:
                 return "studying"
         else:
-            was_away = self.frames_without_face >= self.away_threshold
+            self.frames_with_face += 1
             self.frames_without_face = 0
-            
-            if was_away:
-                print("✅ Face detected - back to studying")
-            
-            return "studying"
+            if self.frames_with_face >= 5:  # Require 5 consecutive detections
+                return "studying"
+            else:
+                return "away"
+
     
     def cleanup(self):
         """Clean up MediaPipe resources"""
