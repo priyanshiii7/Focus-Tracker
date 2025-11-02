@@ -1257,12 +1257,219 @@ async def read_profile(session_token: Optional[str] = Cookie(None)):
     if not session_token or session_token not in active_sessions:
         return RedirectResponse(url="/login")
     
+    # If profile.html doesn't exist, create a simple one inline
     try:
         with open("static/profile.html", "r", encoding="utf-8") as f:
             return f.read()
+    except FileNotFoundError:
+        # Return a simple inline profile page
+        return """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Focus Tracker</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .profile-card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 25px;
+        }
+        
+        .profile-info {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .info-row {
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 10px;
+        }
+        
+        .info-row label {
+            font-weight: 600;
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .info-row .value {
+            font-size: 1.2em;
+            color: #2d3748;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .stat-card {
+            background: #f7fafc;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .back-btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👤 Profile</h1>
+        </div>
+        
+        <div class="profile-card">
+            <div id="loading" class="loading">Loading profile...</div>
+            <div id="profileContent" style="display:none;">
+                <div class="profile-info">
+                    <div class="info-row">
+                        <label>Name</label>
+                        <div class="value" id="userName">-</div>
+                    </div>
+                    <div class="info-row">
+                        <label>Email</label>
+                        <div class="value" id="userEmail">-</div>
+                    </div>
+                    <div class="info-row">
+                        <label>Member Since</label>
+                        <div class="value" id="joinedDate">-</div>
+                    </div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total Sessions</h3>
+                        <div class="value" id="totalSessions">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Study Hours</h3>
+                        <div class="value" id="totalHours">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Avg Focus Score</h3>
+                        <div class="value" id="avgFocus">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Current Streak</h3>
+                        <div class="value" id="streak">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <a href="/" class="back-btn">← Back to Dashboard</a>
+    </div>
+    
+    <script>
+        async function loadProfile() {
+            try {
+                const response = await fetch('/user/profile');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                document.getElementById('userName').textContent = data.user_name;
+                document.getElementById('userEmail').textContent = data.email;
+                
+                const joinedDate = new Date(data.joined_date);
+                document.getElementById('joinedDate').textContent = joinedDate.toLocaleDateString();
+                
+                if (data.stats) {
+                    document.getElementById('totalSessions').textContent = data.stats.total_sessions;
+                    document.getElementById('totalHours').textContent = data.stats.total_study_hours;
+                    document.getElementById('avgFocus').textContent = data.stats.average_focus_score + '%';
+                    document.getElementById('streak').textContent = data.stats.current_streak;
+                }
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('profileContent').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                document.getElementById('loading').textContent = 'Error loading profile. Please try again.';
+            }
+        }
+        
+        loadProfile();
+    </script>
+</body>
+</html>
+        """
     except Exception as e:
-        return f"<h1>Error</h1><p>{str(e)}</p>"
-
+        return f"<h1>Error</h1><p>{str(e)}</p><a href='/'>Back to home</a>"
+    
 @app.get("/version")
 async def get_version():
     """Get API version info"""

@@ -424,56 +424,66 @@
         }
         
         // Detect faces
-        async function detectFaces() {
-            if (!faceDetectionModel || !videoStream) return;
+
+async function detectFaces() {
+    if (!faceDetectionModel || !videoStream) return;
+    
+    const video = document.getElementById('webcam');
+    const predictions = await faceDetectionModel.estimateFaces(video, false);
+    
+    const hasFace = predictions && predictions.length > 0;
+    
+    if (!hasFace) {
+        framesWithoutFace++;
+        
+        // INCREASED THRESHOLD: Now requires 30 consecutive frames (15 seconds) without face
+        // instead of 10 frames (5 seconds) - much more forgiving
+        if (framesWithoutFace >= 30) {
+            if (currentStatus !== 'away') {
+                console.log('⚠️ User away - no face detected for 15 seconds');
+                currentStatus = 'away';
+                awayStartTime = Date.now();
+                updateStatusUI('away');
+                sendStatusToServer('away');
+            }
             
-            const video = document.getElementById('webcam');
-            const predictions = await faceDetectionModel.estimateFaces(video, false);
-            
-            const hasFace = predictions && predictions.length > 0;
-            
-            if (!hasFace) {
-                framesWithoutFace++;
-                if (framesWithoutFace >= 10) {
-                    if (currentStatus !== 'away') {
-                        currentStatus = 'away';
-                        awayStartTime = Date.now();
-                        updateStatusUI('away');
-                        sendStatusToServer('away');
-                    }
-                    
-                    if (awayStartTime) {
-                        const timeAway = (Date.now() - awayStartTime) / 1000;
-                        const now = Date.now();
-                        
-                        if (timeAway >= 30 && (now - lastAlertTime) >= 30000) {
-                            awayWarnings++;
-                            triggerAlert();
-                            lastAlertTime = now;
-                            
-                            if (awayWarnings >= 3) {
-                                alert('Too much time away! Session will end.');
-                                endSession();
-                            }
-                        }
-                    }
-                }
-            } else {
-                if (framesWithoutFace >= 10) {
-                    console.log('✅ Face detected - back to studying');
-                }
-                framesWithoutFace = 0;
-                awayStartTime = null;
-                awayWarnings = 0;
+            // Alert after being away for 45 seconds (not 30)
+            if (awayStartTime) {
+                const timeAway = (Date.now() - awayStartTime) / 1000;
+                const now = Date.now();
                 
-                if (currentStatus !== 'studying') {
-                    currentStatus = 'studying';
-                    updateStatusUI('studying');
-                    sendStatusToServer('studying');
+                // Increased from 30s to 45s for first alert
+                if (timeAway >= 45 && (now - lastAlertTime) >= 45000) {
+                    awayWarnings++;
+                    triggerAlert();
+                    lastAlertTime = now;
+                    
+                    // Increased warning threshold from 3 to 5
+                    if (awayWarnings >= 5) {
+                        alert('Too much time away! Session will end.');
+                        endSession();
+                    }
                 }
             }
         }
+    } else {
+        // Face detected!
+        if (framesWithoutFace >= 30) {
+            console.log('✅ Face detected - back to studying');
+        }
         
+        // IMPORTANT: Reset counters when face is detected
+        framesWithoutFace = 0;
+        awayStartTime = null;
+        awayWarnings = 0;
+        
+        if (currentStatus !== 'studying') {
+            currentStatus = 'studying';
+            updateStatusUI('studying');
+            sendStatusToServer('studying');
+        }
+    }
+}        
         function updateStatusUI(status) {
             const banner = document.getElementById('statusBanner');
             const indicator = document.getElementById('statusIndicator');
@@ -559,7 +569,7 @@
                     document.getElementById('timerDisplay').classList.add('active');
                     document.getElementById('statusBanner').classList.remove('hidden');
                     
-                    detectionInterval = setInterval(detectFaces, 500);
+                    detectionInterval = setInterval(detectFaces, 1000);
                     timerInterval = setInterval(updateTimer, 1000);
                     updateInterval = setInterval(updateStats, 2000);
                     

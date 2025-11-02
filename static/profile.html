@@ -736,7 +736,7 @@
                     document.getElementById('timerDisplay').classList.add('active');
                     document.getElementById('statusBanner').classList.remove('hidden');
                     
-                    detectionInterval = setInterval(detectFaces, 500);
+                    detectionInterval = setInterval(detectFaces, 1000);
                     updateInterval = setInterval(() => {
                         updateSessionTimer();
                         updateLiveStats();
