@@ -422,12 +422,13 @@
         let totalDetections = 0;
         let facesDetected = 0;
         
-        // IMPROVED THRESHOLDS
-        const AWAY_THRESHOLD = 8;        // 8 consecutive no-face frames (≈8 seconds)
-        const RETURN_THRESHOLD = 3;      // Only 3 frames needed to return (≈3 seconds)
+        // IMPROVED THRESHOLDS - More lenient
+        const AWAY_THRESHOLD = 15;       // 15 consecutive no-face frames (≈15 seconds)
+        const RETURN_THRESHOLD = 2;      // Only 2 frames needed to return (≈2 seconds)
         const DETECTION_INTERVAL = 1000; // Check every 1 second
         const ALERT_COOLDOWN = 60000;    // 60 seconds between alerts
         const AWAY_ALERT_TIME = 60;      // Alert after 60 seconds away
+        const MIN_DETECTION_CONFIDENCE = 0.5; // Lower confidence threshold
         
         function updateDebugInfo(hasFace, detectionCount) {
             const indicator = document.getElementById('debugIndicator');
