@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Focus Tracker - Study Session Monitor</title>
+    
+    <!-- Favicon -->
     <link rel="icon" type="image/png" href="/static/favicon.png">
     
     <!-- TensorFlow.js for browser-based face detection -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7"></script>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -23,14 +24,11 @@
             min-height: 100vh;
             padding: 20px;
             transition: background 0.3s ease;
-        }
-        
-        body.gradient-purple {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
         .container {
-            max-width: 1600px;
+            max-width: 1400px;
             margin: 0 auto;
         }
         
@@ -38,7 +36,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
         }
         
         .header {
@@ -46,52 +44,47 @@
         }
         
         .header h1 {
-            font-size: 3em;
+            font-size: 2.5em;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
         
-        /* Video Section */
-        .video-section {
+        /* Status Banner */
+        .status-banner {
             background: white;
-            padding: 25px;
+            padding: 20px 40px;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
         }
         
-        .video-container {
-            position: relative;
-            max-width: 640px;
-            margin: 0 auto;
-            border-radius: 10px;
-            overflow: hidden;
-            background: #000;
-        }
-        
-        #webcam {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        
-        .video-overlay {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 18px;
+        .status-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
         }
         
         .status-studying {
-            background: rgba(72, 187, 120, 0.9) !important;
+            background: #48bb78;
         }
         
         .status-away {
-            background: rgba(237, 137, 54, 0.9) !important;
+            background: #ed8936;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .status-text {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2d3748;
         }
         
         .alert-banner {
@@ -144,12 +137,12 @@
         .timer-display {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
-            padding: 20px 40px;
-            border-radius: 15px;
-            font-size: 3em;
+            padding: 30px 60px;
+            border-radius: 20px;
+            font-size: 4em;
             font-weight: bold;
             text-align: center;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             margin-bottom: 25px;
             display: none;
         }
@@ -159,10 +152,10 @@
         }
         
         .btn {
-            padding: 12px 30px;
-            font-size: 16px;
+            padding: 15px 40px;
+            font-size: 18px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s;
@@ -183,32 +176,49 @@
             color: white;
         }
         
+        .btn-danger:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+        }
+        
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
             margin-bottom: 25px;
         }
         
         .stat-card {
             background: white;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            padding: 35px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
             text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
         }
         
         .stat-card h3 {
             color: #667eea;
-            font-size: 0.9em;
+            font-size: 1em;
             text-transform: uppercase;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+            letter-spacing: 1.5px;
         }
         
         .stat-card .value {
-            font-size: 2.5em;
+            font-size: 3em;
             font-weight: bold;
             color: #2d3748;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .label {
+            color: #718096;
+            font-size: 0.9em;
         }
         
         .hidden {
@@ -230,6 +240,11 @@
             color: inherit;
         }
         
+        .profile-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        
         .logout-btn {
             background: rgba(255,255,255,0.2);
             color: white;
@@ -241,9 +256,51 @@
             transition: all 0.3s;
             text-decoration: none;
         }
+        
+        .logout-btn:hover {
+            background: white;
+            color: #667eea;
+        }
+        
+        input[type="number"] {
+            padding: 12px 20px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 16px;
+            width: 100px;
+        }
+        
+        label {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .no-session {
+            background: white;
+            padding: 60px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .no-session h2 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 15px;
+        }
+        
+        .no-session p {
+            color: #718096;
+            font-size: 1.2em;
+        }
+        
+        /* Hidden video element for face detection */
+        #webcam {
+            display: none;
+        }
     </style>
 </head>
-<body class="gradient-purple">
+<body>
     <div id="alertBanner" class="alert-banner">
         ⚠️ GET BACK TO WORK! ⚠️<br>
         <span style="font-size: 0.5em;">Focus on your studies NOW!</span>
@@ -253,7 +310,7 @@
         <div class="top-bar">
             <div class="header">
                 <h1>📚 Focus Tracker</h1>
-                <p>AI-powered study session monitor</p>
+                <p style="font-size: 1.2em;">AI-powered study session monitor</p>
             </div>
             <div style="display: flex; gap: 15px;">
                 <a href="/profile" class="profile-button" id="profileBtn">
@@ -263,30 +320,25 @@
             </div>
         </div>
 
-        <!-- Camera Section -->
-        <div class="video-section" id="videoSection">
-            <h2 style="text-align: center; margin-bottom: 20px; color: #667eea;">
-                📹 Live Camera Feed
-            </h2>
-            <div class="video-container">
-                <video id="webcam" autoplay playsinline muted></video>
-                <canvas id="canvas" style="display: none;"></canvas>
-                <div id="statusOverlay" class="video-overlay status-studying">
-                    🟢 Initializing...
-                </div>
-            </div>
+        <!-- Status Banner -->
+        <div id="statusBanner" class="status-banner hidden">
+            <div id="statusIndicator" class="status-indicator status-studying"></div>
+            <div id="statusText" class="status-text">🟢 Studying</div>
         </div>
+
+        <!-- Hidden video for face detection -->
+        <video id="webcam" autoplay playsinline muted></video>
 
         <div id="timerDisplay" class="timer-display">
             <div id="timerText">00:00</div>
-            <div style="font-size: 0.3em; margin-top: 10px;">Time Remaining</div>
+            <div style="font-size: 0.25em; margin-top: 10px; opacity: 0.9;">Time Remaining</div>
         </div>
         
         <div class="controls">
             <div class="controls-row">
                 <div class="timer-setup" id="timerSetup">
                     <label>⏱️ Timer:</label>
-                    <input type="number" id="timerMinutes" min="1" max="180" value="25" style="padding: 10px; border: 2px solid #667eea; border-radius: 5px;">
+                    <input type="number" id="timerMinutes" min="1" max="180" value="25">
                     <span>minutes</span>
                 </div>
                 <button class="btn btn-primary" id="startBtn" onclick="startSession()">Start Session</button>
@@ -297,28 +349,32 @@
         <div id="dashboard" class="hidden">
             <div class="stats-grid">
                 <div class="stat-card">
-                    <h3>Study Time</h3>
+                    <h3>📖 Study Time</h3>
                     <div class="value" id="studyTime">0:00</div>
+                    <div class="label">time focused</div>
                 </div>
                 
                 <div class="stat-card">
-                    <h3>Focus Score</h3>
+                    <h3>🎯 Focus Score</h3>
                     <div class="value" id="focusScore">100%</div>
+                    <div class="label">productivity rate</div>
                 </div>
                 
                 <div class="stat-card">
-                    <h3>Time Away</h3>
+                    <h3>⏸️ Time Away</h3>
                     <div class="value" id="awayTime">0:00</div>
+                    <div class="label">distracted time</div>
                 </div>
                 
                 <div class="stat-card">
-                    <h3>Alerts</h3>
+                    <h3>⚠️ Alerts</h3>
                     <div class="value" id="alertsCount">0</div>
+                    <div class="label">warnings issued</div>
                 </div>
             </div>
         </div>
         
-        <div id="noSession" style="background: white; padding: 30px; border-radius: 15px; text-align: center;">
+        <div id="noSession" class="no-session">
             <h2>No Active Session</h2>
             <p>Set a timer and start tracking your focus!</p>
         </div>
@@ -337,6 +393,7 @@
         let updateInterval = null;
         let timerInterval = null;
         let timerEndTime = null;
+        let sessionStartTime = null;
         
         // Load face detection model
         async function loadFaceDetection() {
@@ -344,10 +401,9 @@
                 console.log('Loading face detection model...');
                 faceDetectionModel = await blazeface.load();
                 console.log('✅ Face detection model loaded');
-                document.getElementById('statusOverlay').textContent = '🟢 Ready';
             } catch (error) {
                 console.error('Failed to load face detection:', error);
-                document.getElementById('statusOverlay').textContent = '❌ Model failed';
+                alert('Failed to load face detection model. Please refresh the page.');
             }
         }
         
@@ -378,7 +434,7 @@
             
             if (!hasFace) {
                 framesWithoutFace++;
-                if (framesWithoutFace >= 10) {  // ~5 seconds at 2 detections/second
+                if (framesWithoutFace >= 10) {
                     if (currentStatus !== 'away') {
                         currentStatus = 'away';
                         awayStartTime = Date.now();
@@ -386,7 +442,6 @@
                         sendStatusToServer('away');
                     }
                     
-                    // Check for alerts
                     if (awayStartTime) {
                         const timeAway = (Date.now() - awayStartTime) / 1000;
                         const now = Date.now();
@@ -420,13 +475,18 @@
         }
         
         function updateStatusUI(status) {
-            const overlay = document.getElementById('statusOverlay');
+            const banner = document.getElementById('statusBanner');
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+            
+            banner.classList.remove('hidden');
+            
             if (status === 'studying') {
-                overlay.textContent = '🟢 Studying';
-                overlay.className = 'video-overlay status-studying';
+                text.textContent = '🟢 Studying';
+                indicator.className = 'status-indicator status-studying';
             } else {
-                overlay.textContent = '🟠 Away';
-                overlay.className = 'video-overlay status-away';
+                text.textContent = '🟠 Away';
+                indicator.className = 'status-indicator status-away';
             }
         }
         
@@ -440,7 +500,6 @@
             
             const message = messages[Math.floor(Math.random() * messages.length)];
             
-            // Show visual alert
             const banner = document.getElementById('alertBanner');
             banner.innerHTML = `⚠️ ${message.toUpperCase()} ⚠️`;
             banner.style.display = 'block';
@@ -449,7 +508,6 @@
                 banner.style.display = 'none';
             }, 5000);
             
-            // Send to server
             sendStatusToServer('away', {
                 message: message,
                 timestamp: new Date().toISOString(),
@@ -478,7 +536,6 @@
                 return;
             }
             
-            // Start webcam
             const webcamStarted = await startWebcam();
             if (!webcamStarted) return;
             
@@ -491,6 +548,7 @@
                 
                 if (response.ok) {
                     sessionActive = true;
+                    sessionStartTime = Date.now();
                     timerEndTime = Date.now() + (minutes * 60 * 1000);
                     
                     document.getElementById('startBtn').classList.add('hidden');
@@ -499,20 +557,17 @@
                     document.getElementById('noSession').classList.add('hidden');
                     document.getElementById('timerSetup').style.display = 'none';
                     document.getElementById('timerDisplay').classList.add('active');
+                    document.getElementById('statusBanner').classList.remove('hidden');
                     
-                    // Start face detection
-                    detectionInterval = setInterval(detectFaces, 500);  // 2 times per second
-                    
-                    // Start timer
+                    detectionInterval = setInterval(detectFaces, 500);
                     timerInterval = setInterval(updateTimer, 1000);
-                    
-                    // Start stats update
                     updateInterval = setInterval(updateStats, 2000);
                     
                     updateTimer();
                     updateStats();
+                    updateStatusUI('studying');
                     
-                    console.log('✅ Session started with browser-based detection');
+                    console.log('✅ Session started');
                 }
             } catch (error) {
                 console.error('Failed to start session:', error);
@@ -559,7 +614,6 @@
             clearInterval(timerInterval);
             clearInterval(updateInterval);
             
-            // Stop webcam
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
                 videoStream = null;
@@ -572,15 +626,15 @@
                 });
                 
                 const data = await response.json();
-                alert(`Session ended!\n\nStudy time: ${formatTime(data.final_stats.studying_time)}\nFocus score: ${data.final_stats.focus_score}%`);
+                alert(`Session ended!\n\nStudy time: ${formatTime(data.final_stats.studying_time)}\nFocus score: ${Math.round(data.final_stats.focus_score)}%`);
                 
-                // Reset UI
                 document.getElementById('startBtn').classList.remove('hidden');
                 document.getElementById('endBtn').classList.add('hidden');
                 document.getElementById('dashboard').classList.add('hidden');
                 document.getElementById('noSession').classList.remove('hidden');
                 document.getElementById('timerSetup').style.display = 'flex';
                 document.getElementById('timerDisplay').classList.remove('active');
+                document.getElementById('statusBanner').classList.add('hidden');
             } catch (error) {
                 console.error('Failed to end session:', error);
             }
