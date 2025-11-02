@@ -34,6 +34,206 @@ active_sessions = {}
 user_sessions = {}
 session_lock = threading.Lock()
 
+# ==================== MAINTENANCE MODE ====================
+MAINTENANCE_MODE = False  # Set to True to enable maintenance mode
+
+def check_maintenance():
+    """Check if maintenance mode is active"""
+    if MAINTENANCE_MODE:
+        raise HTTPException(
+            status_code=503, 
+            detail="System is under maintenance. Please try again later."
+        )
+
+@app.get("/api/maintenance")
+async def get_maintenance_status():
+    """Check maintenance mode status"""
+    return {"maintenance_mode": MAINTENANCE_MODE}
+
+@app.post("/api/admin/maintenance")
+async def toggle_maintenance(enable: bool = Body(..., embed=True), admin_key: str = Body(..., embed=True)):
+    """Toggle maintenance mode (admin only)"""
+    ADMIN_KEY = os.getenv("ADMIN_KEY", "your-secret-admin-key-here")
+    
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Invalid admin key")
+    
+    global MAINTENANCE_MODE
+    MAINTENANCE_MODE = enable
+    
+    return {
+        "message": f"Maintenance mode {'enabled' if enable else 'disabled'}",
+        "maintenance_mode": MAINTENANCE_MODE
+    }
+
+@app.get("/maintenance", response_class=HTMLResponse)
+async def maintenance_page():
+    """Display maintenance page"""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Under Maintenance</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0;
+            }
+            .container {
+                background: white;
+                padding: 60px;
+                border-radius: 20px;
+                text-align: center;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                max-width: 500px;
+            }
+            h1 {
+                color: #667eea;
+                font-size: 3em;
+                margin-bottom: 20px;
+            }
+            p {
+                color: #718096;
+                font-size: 1.2em;
+                line-height: 1.6;
+            }
+            .emoji {
+                font-size: 5em;
+                margin-bottom: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="emoji">🔧</div>
+            <h1>Under Maintenance</h1>
+            <p>We're currently updating Focus Tracker to serve you better.</p>
+            <p>We'll be back shortly. Thank you for your patience!</p>
+        </div>
+    </body>
+    </html>
+    """
+
+# ==================== SESSION PERSISTENCE ====================
+
+def save_session_to_db(user_id: str):
+    """Save active session state to database"""
+    try:
+        if user_id not in user_sessions:
+            return
+        
+        session_data = user_sessions[user_id]
+        session_id = session_data.get("session_id")
+        
+        if not session_id:
+            return
+        
+        # Calculate current metrics
+        metrics = calculate_current_metrics(session_data)
+        
+        # Update session in database
+        sessions_collection.update_one(
+            {"_id": session_id},
+            {
+                "$set": {
+                    "focus_intervals": session_data["intervals"],
+                    "recent_alerts": session_data.get("recent_alerts", []),
+                    "metrics": metrics,
+                    "last_updated": datetime.utcnow()
+                }
+            }
+        )
+        
+        print(f"💾 Session persisted for user {user_id}")
+        
+    except Exception as e:
+        print(f"⚠️  Error saving session to DB: {e}")
+
+def restore_session_from_db(user_id: str):
+    """Restore active session from database if it exists"""
+    try:
+        # Look for active session in database
+        session = sessions_collection.find_one({
+            "user_id": ObjectId(user_id),
+            "end_time": None,
+            "last_updated": {"$gte": datetime.utcnow() - timedelta(hours=2)}  # Within last 2 hours
+        })
+        
+        if not session:
+            return None
+        
+        print(f"🔄 Restoring session for user {user_id}")
+        
+        return {
+            "session_id": session["_id"],
+            "start_time": session["start_time"],
+            "timer_end_time": session.get("timer_end_time"),
+            "intervals": session.get("focus_intervals", []),
+            "recent_alerts": session.get("recent_alerts", []),
+            "metrics": session.get("metrics", {
+                "studying_time": 0,
+                "distracted_time": 0,
+                "away_time": 0,
+                "total_alerts": 0
+            })
+        }
+        
+    except Exception as e:
+        print(f"⚠️  Error restoring session: {e}")
+        return None
+
+def calculate_current_metrics(session_data):
+    """Calculate metrics from intervals"""
+    metrics = {
+        "studying_time": 0,
+        "distracted_time": 0,
+        "away_time": 0,
+        "total_alerts": len(session_data.get("recent_alerts", [])),
+        "focus_score": 0
+    }
+    
+    for interval in session_data.get("intervals", []):
+        if interval.get("end"):
+            start = datetime.fromisoformat(interval["start"])
+            end = datetime.fromisoformat(interval["end"])
+            duration = (end - start).total_seconds()
+            
+            status = interval.get("status", "studying")
+            if status == "studying":
+                metrics["studying_time"] += duration
+            elif status == "away":
+                metrics["away_time"] += duration
+            elif status == "distracted":
+                metrics["distracted_time"] += duration
+    
+    # Calculate focus score
+    total_time = metrics["studying_time"] + metrics["away_time"] + metrics["distracted_time"]
+    if total_time > 0:
+        metrics["focus_score"] = (metrics["studying_time"] / total_time) * 100
+    else:
+        metrics["focus_score"] = 100
+    
+    return metrics
+
+# Auto-save sessions every 30 seconds
+def auto_save_sessions():
+    """Background task to periodically save sessions"""
+    while True:
+        time.sleep(30)
+        with session_lock:
+            for user_id in list(user_sessions.keys()):
+                save_session_to_db(user_id)
+
+# Start auto-save thread
+auto_save_thread = threading.Thread(target=auto_save_sessions, daemon=True)
+auto_save_thread.start()
+print("✅ Auto-save thread started")
+
 # ==================== HELPER FUNCTIONS ====================
 
 def hash_password(password: str) -> str:
@@ -52,8 +252,6 @@ def get_current_user(session_token: Optional[str] = Cookie(None)):
 
 # ==================== AUTHENTICATION ROUTES ====================
 
-
-
 @app.post("/signup")
 async def signup(
     name: str = Form(...), 
@@ -62,6 +260,7 @@ async def signup(
     confirm_password: str = Form(...)
 ):
     """Create new user account with validation"""
+    check_maintenance()
     
     # Validate name
     if len(name.strip()) < 2:
@@ -185,6 +384,7 @@ async def signup(
 @app.post("/login")
 async def login(email: str = Form(...), password: str = Form(...)):
     """Login user with validation"""
+    check_maintenance()
     
     # Basic validation
     if not email or not password:
@@ -207,6 +407,12 @@ async def login(email: str = Form(...), password: str = Form(...)):
         "email": user["email"],
         "name": user["name"]
     }
+    
+    # Try to restore previous session
+    user_id = str(user["_id"])
+    restored_session = restore_session_from_db(user_id)
+    if restored_session:
+        print(f"🔄 Restored previous session for {user['name']}")
     
     print(f"✅ User logged in: {user['name']} ({user['email']})")
     
@@ -239,7 +445,6 @@ async def get_app_statistics():
         }
 
 
-# Add this route to display stats on a webpage (optional)
 @app.get("/stats", response_class=HTMLResponse)
 async def stats_page():
     """Display application statistics page"""
@@ -388,6 +593,13 @@ async def stats_page():
 async def logout(session_token: Optional[str] = Cookie(None)):
     """Logout user"""
     if session_token and session_token in active_sessions:
+        user = active_sessions[session_token]
+        user_id = str(user["_id"])
+        
+        # Save session before logout
+        if user_id in user_sessions:
+            save_session_to_db(user_id)
+        
         del active_sessions[session_token]
     
     response = RedirectResponse(url="/login", status_code=302)
@@ -397,6 +609,8 @@ async def logout(session_token: Optional[str] = Cookie(None)):
 @app.get("/api/current-user")
 async def get_current_user_info(user = Depends(get_current_user)):
     """Get current logged in user info"""
+    check_maintenance()
+    
     user_data = users_collection.find_one({"_id": user["_id"]})
     if not user_data:
         raise HTTPException(status_code=404, detail="User not found")
@@ -414,259 +628,8 @@ async def get_current_user_info(user = Depends(get_current_user)):
 @app.post("/session/start")
 async def start_session(timer_duration: int = Body(None, embed=True), user = Depends(get_current_user)):
     """Start a new focus session"""
-    try:
-        user_id = str(user["_id"])
-        
-        print(f"🔄 Starting session for user: {user['name']}")
-        print(f"⏱️  Timer duration: {timer_duration} minutes")
-        
-        # Calculate timer end time if provided
-        timer_end_time = None
-        if timer_duration:
-            timer_end_time = datetime.utcnow() + timedelta(minutes=timer_duration)
-            print(f"⏰ Timer will end at: {timer_end_time}")
-        
-        with session_lock:
-            # Check if user already has an active session
-            if user_id in user_sessions:
-                print(f"⚠️  User {user_id} already has an active session")
-                raise HTTPException(status_code=400, detail="Session already active")
-            
-            # Get user data
-            user_data = users_collection.find_one({"_id": user["_id"]})
-            if not user_data:
-                print(f"❌ User not found: {user_id}")
-                raise HTTPException(status_code=404, detail="User not found")
-            
-            print(f"✅ User data loaded: {user_data.get('name')}")
-            
-            # Create session in database
-            from database import sessions_collection
-            session_doc = {
-                "user_id": user["_id"],
-                "start_time": datetime.utcnow(),
-                "end_time": None,
-                "timer_duration": timer_duration,
-                "timer_end_time": timer_end_time,
-                "focus_intervals": [],
-                "recent_alerts": [],
-                "metrics": {
-                    "studying_time": 0,
-                    "distracted_time": 0,
-                    "away_time": 0,
-                    "total_alerts": 0,
-                    "focus_score": 100
-                }
-            }
-            
-            result = sessions_collection.insert_one(session_doc)
-            session_id = result.inserted_id
-            print(f"💾 Session created in DB with ID: {session_id}")
-            
-            # Create session in memory
-            session_start_time = datetime.utcnow()
-            current_intervals = [{
-                "start": session_start_time.isoformat(),
-                "end": None,
-                "status": "studying"
-            }]
-            
-            user_sessions[user_id] = {
-                "session_id": session_id,
-                "cv_processor": None,
-                "start_time": session_start_time,
-                "timer_end_time": timer_end_time,
-                "intervals": current_intervals,
-                "recent_alerts": [],
-                "metrics": {
-                    "studying_time": 0,
-                    "distracted_time": 0,
-                    "away_time": 0,
-                    "total_alerts": 0
-                }
-            }
-            
-            print(f"📝 Session stored in memory for user {user_id}")
-        
-        # Get alert preference
-        alert_mode = user_data.get("alert_preference", "both")
-        print(f"🔔 Alert mode: {alert_mode}")
-        
-        # Define status callback
-        def status_callback(new_status, alert_data=None):
-            try:
-                with session_lock:
-                    if user_id not in user_sessions:
-                        return
-                    
-                    session_data = user_sessions[user_id]
-                    
-                    if new_status == "session_end":
-                        return
-                    
-                    if alert_data:
-                        session_data["recent_alerts"].append(alert_data)
-                        session_data["metrics"]["total_alerts"] += 1
-                        session_data["recent_alerts"] = session_data["recent_alerts"][-10:]
-                    
-                    now = datetime.utcnow()
-                    if session_data["intervals"]:
-                        session_data["intervals"][-1]["end"] = now.isoformat()
-                    
-                    session_data["intervals"].append({
-                        "start": now.isoformat(),
-                        "end": None,
-                        "status": new_status
-                    })
-            except Exception as e:
-                print(f"⚠️  Error in status callback: {e}")
-        
-        # Start CV processor
-        print("📷 Starting CV processor...")
-        cv_processor = CVProcessor(callback=status_callback, alert_mode=alert_mode)
-        user_sessions[user_id]["cv_processor"] = cv_processor
-        
-        cv_thread = threading.Thread(target=cv_processor.start, daemon=True)
-        cv_thread.start()
-        
-        print(f"✅ Session started successfully for {user['name']}")
-        
-        return {
-            "message": "Session started",
-            "session_id": str(session_id),
-            "user_name": user["name"],
-            "timer_end_time": timer_end_time.isoformat() if timer_end_time else None
-        }
+    check_maintenance()
     
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ FATAL ERROR starting session: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to start session: {str(e)}")
-
-
-
-@app.post("/session/start-with-timer")
-async def start_session_with_timer(request: dict = Body(...), user = Depends(get_current_user)):
-    """Start a new focus session with timer"""
-    try:
-        user_id = str(user["_id"])
-        
-        # Get timer duration from request
-        timer_duration = request.get('timer_duration')
-        timer_end_time = None
-        
-        if timer_duration:
-            timer_end_time = datetime.utcnow() + timedelta(minutes=timer_duration)
-        
-        with session_lock:
-            # Check if user already has an active session
-            if user_id in user_sessions:
-                raise HTTPException(status_code=400, detail="Session already active")
-            
-            user_data = users_collection.find_one({"_id": user["_id"]})
-            if not user_data:
-                raise HTTPException(status_code=404, detail="User not found")
-            
-            # Create session in database
-            session_doc = {
-                "user_id": user["_id"],
-                "start_time": datetime.utcnow(),
-                "end_time": None,
-                "timer_duration": timer_duration,
-                "timer_end_time": timer_end_time,
-                "focus_intervals": [],
-                "metrics": {
-                    "studying_time": 0,
-                    "distracted_time": 0,
-                    "away_time": 0,
-                    "total_alerts": 0,
-                    "focus_score": 100
-                }
-            }
-            
-            from database import sessions_collection
-            result = sessions_collection.insert_one(session_doc)
-            session_id = result.inserted_id
-            
-            session_start_time = datetime.utcnow()
-            current_intervals = [{
-                "start": session_start_time.isoformat(),
-                "end": None,
-                "status": "studying"
-            }]
-            
-            user_sessions[user_id] = {
-                "session_id": session_id,
-                "cv_processor": None,
-                "start_time": session_start_time,
-                "timer_end_time": timer_end_time,
-                "intervals": current_intervals,
-                "recent_alerts": [],
-                "metrics": {
-                    "studying_time": 0,
-                    "distracted_time": 0,
-                    "away_time": 0,
-                    "total_alerts": 0
-                }
-            }
-        
-        # Start CV processor
-        alert_mode = user_data.get("alert_preference", "both")
-        
-        def status_callback(new_status, alert_data=None):
-            with session_lock:
-                if user_id not in user_sessions:
-                    return
-                
-                session_data = user_sessions[user_id]
-                
-                if new_status == "session_end":
-                    return
-                
-                if alert_data:
-                    session_data["recent_alerts"].append(alert_data)
-                    session_data["metrics"]["total_alerts"] += 1
-                    session_data["recent_alerts"] = session_data["recent_alerts"][-10:]
-                
-                now = datetime.utcnow()
-                if session_data["intervals"]:
-                    session_data["intervals"][-1]["end"] = now.isoformat()
-                
-                session_data["intervals"].append({
-                    "start": now.isoformat(),
-                    "end": None,
-                    "status": new_status
-                })
-        
-        cv_processor = CVProcessor(callback=status_callback, alert_mode=alert_mode)
-        user_sessions[user_id]["cv_processor"] = cv_processor
-        
-        cv_thread = threading.Thread(target=cv_processor.start, daemon=True)
-        cv_thread.start()
-        
-        print(f"✅ Session started for {user['name']}" + (f" (Timer: {timer_duration} min)" if timer_duration else ""))
-        
-        return {
-            "message": "Session started",
-            "session_id": str(session_id),
-            "user_name": user["name"],
-            "timer_end_time": timer_end_time.isoformat() if timer_end_time else None
-        }
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Error starting session: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to start session: {str(e)}")   
-
-@app.post("/session/start")
-async def start_session(timer_duration: int = Body(None, embed=True), user = Depends(get_current_user)):
-    """Start a new focus session"""
     try:
         user_id = str(user["_id"])
         
@@ -684,6 +647,7 @@ async def start_session(timer_duration: int = Body(None, embed=True), user = Dep
                         time.sleep(0.3)
                     except:
                         pass
+                save_session_to_db(user_id)
                 del user_sessions[user_id]
             
             # Calculate timer end time if provided
@@ -716,7 +680,8 @@ async def start_session(timer_duration: int = Body(None, embed=True), user = Dep
                     "away_time": 0,
                     "total_alerts": 0,
                     "focus_score": 100
-                }
+                },
+                "last_updated": datetime.utcnow()
             }
             
             result = sessions_collection.insert_one(session_doc)
@@ -882,123 +847,54 @@ async def end_session_route(user = Depends(get_current_user)):
         "final_stats": stats["metrics"]
     }
 
-
-@app.post("/session/start-with-timer")
-async def start_session_with_timer(request: dict = Body(...), user = Depends(get_current_user)):
-    """Start a new focus session with timer"""
-    try:
-        user_id = str(user["_id"])
-        
-        # Get timer duration from request
-        timer_duration = request.get('timer_duration')
-        timer_end_time = None
-        
-        if timer_duration:
-            timer_end_time = datetime.utcnow() + timedelta(minutes=timer_duration)
-        
-        with session_lock:
-            # Check if user already has an active session
-            if user_id in user_sessions:
-                raise HTTPException(status_code=400, detail="Session already active")
-            
-            user_data = users_collection.find_one({"_id": user["_id"]})
-            if not user_data:
-                raise HTTPException(status_code=404, detail="User not found")
-            
-            # Create session in database
-            session_doc = {
-                "user_id": user["_id"],
-                "start_time": datetime.utcnow(),
-                "end_time": None,
-                "timer_duration": timer_duration,
-                "timer_end_time": timer_end_time,
-                "focus_intervals": [],
-                "metrics": {
-                    "studying_time": 0,
-                    "distracted_time": 0,
-                    "away_time": 0,
-                    "total_alerts": 0,
-                    "focus_score": 100
-                }
-            }
-            
-            from database import sessions_collection
-            result = sessions_collection.insert_one(session_doc)
-            session_id = result.inserted_id
-            
-            session_start_time = datetime.utcnow()
-            current_intervals = [{
-                "start": session_start_time.isoformat(),
-                "end": None,
-                "status": "studying"
-            }]
-            
-            user_sessions[user_id] = {
-                "session_id": session_id,
-                "cv_processor": None,
-                "start_time": session_start_time,
-                "timer_end_time": timer_end_time,
-                "intervals": current_intervals,
-                "recent_alerts": [],
-                "metrics": {
-                    "studying_time": 0,
-                    "distracted_time": 0,
-                    "away_time": 0,
-                    "total_alerts": 0
-                }
-            }
-        
-        # Start CV processor
-        alert_mode = user_data.get("alert_preference", "both")
-        
-        def status_callback(new_status, alert_data=None):
-            with session_lock:
-                if user_id not in user_sessions:
-                    return
-                
-                session_data = user_sessions[user_id]
-                
-                if new_status == "session_end":
-                    return
-                
-                if alert_data:
-                    session_data["recent_alerts"].append(alert_data)
-                    session_data["metrics"]["total_alerts"] += 1
-                    session_data["recent_alerts"] = session_data["recent_alerts"][-10:]
-                
-                now = datetime.utcnow()
-                if session_data["intervals"]:
-                    session_data["intervals"][-1]["end"] = now.isoformat()
-                
-                session_data["intervals"].append({
-                    "start": now.isoformat(),
-                    "end": None,
-                    "status": new_status
-                })
-        
-        cv_processor = CVProcessor(callback=status_callback, alert_mode=alert_mode)
-        user_sessions[user_id]["cv_processor"] = cv_processor
-        
-        cv_thread = threading.Thread(target=cv_processor.start, daemon=True)
-        cv_thread.start()
-        
-        print(f"✅ Session started for {user['name']}" + (f" (Timer: {timer_duration} min)" if timer_duration else ""))
-        
-        return {
-            "message": "Session started",
-            "session_id": str(session_id),
-            "user_name": user["name"],
-            "timer_end_time": timer_end_time.isoformat() if timer_end_time else None
-        }
+@app.get("/session/current")
+async def get_current_session_stats(user = Depends(get_current_user)):
+    """Get current session statistics"""
+    user_id = str(user["_id"])
     
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Error starting session: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to start session: {str(e)}")
+    if user_id not in user_sessions:
+        raise HTTPException(status_code=404, detail="No active session")
+    
+    session_data = user_sessions[user_id]
+    
+    # Calculate metrics
+    metrics = calculate_current_metrics(session_data)
+    
+    return {
+        "session_id": str(session_data["session_id"]),
+        "start_time": session_data["start_time"].isoformat(),
+        "current_status": session_data.get("cv_processor", {}).get_current_status() if session_data.get("cv_processor") else "studying",
+        "metrics": metrics,
+        "recent_alerts": session_data.get("recent_alerts", []),
+        "intervals": session_data.get("intervals", [])
+    }
+
+@app.post("/session/force-clear")
+async def force_clear_session(user = Depends(get_current_user)):
+    """Force clear any stuck sessions for the user"""
+    user_id = str(user["_id"])
+    
+    with session_lock:
+        if user_id in user_sessions:
+            session_data = user_sessions[user_id]
+            
+            # Save before clearing
+            save_session_to_db(user_id)
+            
+            # Stop CV processor if exists
+            if session_data.get("cv_processor"):
+                try:
+                    session_data["cv_processor"].stop()
+                except:
+                    pass
+            
+            del user_sessions[user_id]
+            print(f"✅ Force cleared session for user {user_id}")
+            
+            return {"message": "Session cleared", "success": True}
         
+        return {"message": "No session to clear", "success": False}
+
 # ==================== SETTINGS ROUTES ====================
 
 @app.post("/settings/alerts")
@@ -1171,6 +1067,9 @@ async def video_feed(user = Depends(get_current_user)):
 @app.get("/", response_class=HTMLResponse)
 async def read_root(session_token: Optional[str] = Cookie(None)):
     """Serve the dashboard or redirect to login"""
+    if MAINTENANCE_MODE:
+        return RedirectResponse(url="/maintenance")
+    
     if not session_token or session_token not in active_sessions:
         return RedirectResponse(url="/login")
     
@@ -1183,6 +1082,9 @@ async def read_root(session_token: Optional[str] = Cookie(None)):
 @app.get("/profile", response_class=HTMLResponse)
 async def read_profile(session_token: Optional[str] = Cookie(None)):
     """Serve the profile page or redirect to login"""
+    if MAINTENANCE_MODE:
+        return RedirectResponse(url="/maintenance")
+    
     if not session_token or session_token not in active_sessions:
         return RedirectResponse(url="/login")
     
@@ -1192,6 +1094,14 @@ async def read_profile(session_token: Optional[str] = Cookie(None)):
     except Exception as e:
         return f"<h1>Error</h1><p>{str(e)}</p>"
 
+@app.get("/version")
+async def get_version():
+    """Get API version info"""
+    return {
+        "version": "1.0.0",
+        "updated": datetime.utcnow().isoformat(),
+        "maintenance_mode": MAINTENANCE_MODE
+    }
 
 if __name__ == "__main__":
     print("🎯 Starting Enhanced Focus Tracker with Authentication...")
@@ -1200,29 +1110,10 @@ if __name__ == "__main__":
     print("📊 Login: http://localhost:8000/login")
     print("🏠 Dashboard: http://localhost:8000")
     print("👤 Profile: http://localhost:8000/profile")
+    print("📈 Stats: http://localhost:8000/stats")
+    print("🔧 Version: http://localhost:8000/version")
+    print("=" * 60)
+    print("✅ Session persistence: ENABLED")
+    print("✅ Maintenance mode: DISABLED")
     print("=" * 60)
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-@app.post("/session/force-clear")
-async def force_clear_session(user = Depends(get_current_user)):
-    """Force clear any stuck sessions for the user"""
-    user_id = str(user["_id"])
-    
-    with session_lock:
-        if user_id in user_sessions:
-            session_data = user_sessions[user_id]
-            
-            # Stop CV processor if exists
-            if session_data.get("cv_processor"):
-                try:
-                    session_data["cv_processor"].stop()
-                except:
-                    pass
-            
-            del user_sessions[user_id]
-            print(f"✅ Force cleared session for user {user_id}")
-            
-            return {"message": "Session cleared", "success": True}
-        
-        return {"message": "No session to clear", "success": False}

@@ -8,3 +8,12 @@ pydantic==2.5.0
 python-multipart==0.0.6
 numpy<2.0
 pyttsx3==2.90
+
+# Additional dependencies for production
+gunicorn==21.2.0
+aiofiles==23.2.1
+python-jose[cryptography]==3.3.0
+requests==2.31.0
+
+# For better error handling and logging
+colorlog==6.8.0
