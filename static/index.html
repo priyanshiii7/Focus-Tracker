@@ -344,6 +344,9 @@
         <div id="statusBanner" class="status-banner hidden">
             <div id="statusIndicator" class="status-indicator status-studying"></div>
             <div id="statusText" class="status-text">🟢 Studying</div>
+            <button onclick="forceStudyingStatus()" style="margin-left: 20px; padding: 10px 20px; background: #48bb78; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                ✓ I'm Here
+            </button>
         </div>
 
         <!-- Hidden video for face detection -->
@@ -521,33 +524,43 @@
                     return;
                 }
                 
-                // Run face detection
+                // Run face detection with lower threshold
                 const predictions = await faceDetectionModel.estimateFaces(video, false);
                 
                 totalDetections++;
                 const hasFace = predictions && predictions.length > 0;
+                
+                // Log detection for debugging
+                if (totalDetections % 5 === 0) {
+                    console.log(`Detection #${totalDetections}: ${hasFace ? '✅ FACE' : '❌ NO FACE'} (${predictions ? predictions.length : 0} faces)`);
+                }
                 
                 if (hasFace) {
                     facesDetected++;
                     framesWithFace++;
                     framesWithoutFace = 0; // Reset negative counter
                     
-                    // EASIER TO RETURN: Only need 3 consecutive frames with face
+                    // EASIER TO RETURN: Only need 2 consecutive frames with face
                     if (framesWithFace >= RETURN_THRESHOLD && currentStatus === 'away') {
-                        console.log('✅ Face detected - BACK TO STUDYING');
+                        console.log('🎉 RETURNING TO STUDYING - Face detected!');
                         awayStartTime = null;
                         awayWarnings = 0;
                         currentStatus = 'studying';
                         updateStatusUI('studying');
                         sendStatusToServer('studying');
+                    } else if (currentStatus === 'studying') {
+                        // Keep status as studying
+                        if (framesWithFace === 1) {
+                            console.log('✅ Still studying - face confirmed');
+                        }
                     }
                 } else {
                     framesWithoutFace++;
                     framesWithFace = 0; // Reset positive counter
                     
-                    // Need more frames to mark as away (8 frames ≈ 8 seconds)
+                    // Need more frames to mark as away (15 frames ≈ 15 seconds)
                     if (framesWithoutFace >= AWAY_THRESHOLD && currentStatus === 'studying') {
-                        console.log('⚠️ User away - no face detected for 8+ seconds');
+                        console.log('⚠️ MARKING AS AWAY - no face for 15+ seconds');
                         currentStatus = 'away';
                         awayStartTime = Date.now();
                         updateStatusUI('away');
@@ -652,13 +665,14 @@
             const webcamStarted = await startWebcam();
             if (!webcamStarted) return;
             
-            // Reset ALL counters
+            // Reset ALL counters and force studying status
             totalDetections = 0;
             facesDetected = 0;
             framesWithoutFace = 0;
             framesWithFace = 0;
             awayWarnings = 0;
             awayStartTime = null;
+            currentStatus = 'studying'; // Force studying at start
             
             try {
                 const response = await fetch('/session/start', {
