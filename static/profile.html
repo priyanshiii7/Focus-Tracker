@@ -3,13 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Focus Tracker - Study Session Monitor</title>
-    
-    <link rel="icon" type="image/png" href="/static/favicon.png">
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7"></script>
-    
+    <title>Profile - Focus Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -19,9 +14,9 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            min-height: 100vh;
-            padding: 20px;
             transition: background 0.3s ease;
+            height: 100vh;
+            overflow: hidden;
         }
         
         body.gradient-purple {
@@ -37,287 +32,54 @@
         }
         
         body.gradient-forest {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
         }
         
-        body.gradient-ocean {
-            background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+        body.gradient-night {
+            background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
         }
         
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            padding: 15px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         
-        .top-bar {
+        .nav-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
-        }
-        
-        .header {
-            color: white;
-        }
-        
-        .header h1 {
-            font-size: 2.5em;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-        
-        .status-banner {
-            background: white;
-            padding: 20px 40px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-        }
-        
-        .status-indicator {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        
-        .status-studying {
-            background: #48bb78;
-        }
-        
-        .status-away {
-            background: #ed8936;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        .status-text {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #2d3748;
-        }
-        
-        .alert-banner {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #e53e3e;
-            color: white;
-            padding: 80px 100px;
-            border-radius: 25px;
-            font-size: 4em;
-            font-weight: bold;
-            z-index: 2000;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
-            animation: shake 0.5s infinite;
-            text-align: center;
-            border: 5px solid #fff;
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translate(-50%, -50%) rotate(0deg); }
-            25% { transform: translate(-50%, -50%) rotate(-2deg); }
-            75% { transform: translate(-50%, -50%) rotate(2deg); }
-        }
-        
-        .controls {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            margin-bottom: 25px;
-        }
-        
-        .controls-row {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        
-        .timer-setup {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .timer-display {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 30px 60px;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            margin-bottom: 25px;
-            display: none;
-        }
-        
-        .timer-display.active {
-            display: block;
-        }
-        
-        .timer-main {
-            font-size: 4em;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        
-        .timer-label {
-            font-size: 1em;
-            opacity: 0.9;
-            margin-bottom: 20px;
-        }
-        
-        .live-stats {
-            display: flex;
-            gap: 30px;
-            justify-content: center;
-            padding-top: 20px;
-            border-top: 2px solid rgba(255,255,255,0.3);
-        }
-        
-        .live-stat {
-            text-align: center;
-        }
-        
-        .live-stat-value {
-            font-size: 2em;
-            font-weight: bold;
-        }
-        
-        .live-stat-label {
-            font-size: 0.9em;
-            opacity: 0.8;
-            margin-top: 5px;
-        }
-        
-        .btn {
-            padding: 15px 40px;
-            font-size: 18px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-        
-        .btn-danger {
-            background: #f56565;
-            color: white;
-        }
-        
-        .btn-danger:hover {
-            background: #e53e3e;
-            transform: translateY(-2px);
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px;
-            margin-bottom: 25px;
-        }
-        
-        .stat-card {
-            background: white;
-            padding: 35px;
-            border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            text-align: center;
-            transition: transform 0.3s;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .stat-card h3 {
-            color: #667eea;
-            font-size: 1em;
-            text-transform: uppercase;
             margin-bottom: 15px;
-            letter-spacing: 1.5px;
         }
         
-        .stat-card .value {
-            font-size: 3em;
-            font-weight: bold;
-            color: #2d3748;
-            margin-bottom: 5px;
-        }
-        
-        .stat-card .label {
-            color: #718096;
-            font-size: 0.9em;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        .profile-button {
+        .back-btn {
             background: white;
-            padding: 15px 30px;
-            border-radius: 50px;
+            padding: 8px 20px;
+            border-radius: 20px;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
             font-weight: 600;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
             transition: all 0.3s;
             text-decoration: none;
-            color: inherit;
-        }
-        
-        .profile-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-        }
-        
-        .profile-avatar-small {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            display: flex;
+            color: #2d3748;
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            overflow: hidden;
+            gap: 6px;
         }
         
-        .profile-avatar-small img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
         
         .logout-btn {
             background: rgba(255,255,255,0.2);
             color: white;
-            padding: 12px 25px;
-            border-radius: 50px;
+            padding: 8px 20px;
+            border-radius: 20px;
             border: 2px solid white;
             cursor: pointer;
             font-weight: 600;
@@ -329,532 +91,1097 @@
             background: white;
             color: #667eea;
         }
-        
-        input[type="number"] {
-            padding: 12px 20px;
-            border: 2px solid #667eea;
-            border-radius: 8px;
-            font-size: 16px;
-            width: 100px;
-        }
-        
-        label {
+
+        .active-session-badge {
+            background: #48bb78;
+            color: white;
+            padding: 6px 15px;
+            border-radius: 15px;
+            font-size: 0.85em;
             font-weight: 600;
-            color: #2d3748;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            animation: pulse 2s infinite;
         }
-        
-        .no-session {
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .live-indicator {
+            width: 8px;
+            height: 8px;
             background: white;
-            padding: 60px;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
         }
         
-        .no-session h2 {
+        .main-content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 15px;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .profile-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            margin-bottom: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #profileInitial {
+            font-size: 36px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .profile-name {
+            font-size: 1.5em;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+        
+        .profile-meta {
+            color: #718096;
+            font-size: 0.85em;
+            line-height: 1.6;
+        }
+        
+        .username-edit {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .username-edit input {
+            flex: 1;
+            padding: 8px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+        }
+        
+        .username-edit button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .upload-btn {
+            background: #667eea;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+        
+        .theme-card {
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+        
+        .theme-card h3 {
+            color: #2d3748;
+            margin-bottom: 12px;
+            font-size: 1em;
+        }
+        
+        .theme-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .theme-option {
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .theme-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .theme-option.active {
+            border-color: #2d3748;
+        }
+        
+        .theme-option.gradient-purple {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .theme-option.gradient-blue {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .theme-option.gradient-sunset {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        
+        .theme-option.gradient-forest {
+            background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+        }
+        
+        .theme-option.gradient-night {
+            background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
+        }
+        
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-height: 0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px 10px;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+        }
+
+        .stat-card.live-updating {
+            border: 2px solid #48bb78;
+            box-shadow: 0 0 15px rgba(72, 187, 120, 0.3);
+        }
+        
+        .stat-card h3 {
             color: #667eea;
-            font-size: 2em;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .stat-card .value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+        
+        .stat-card .label {
+            color: #718096;
+            font-size: 0.7em;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 8px;
+            background: white;
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 10px;
+            background: #f7fafc;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9em;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .chart-section {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chart-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .chart-container {
+            flex: 1;
+            min-height: 0;
+            position: relative;
+        }
+        
+        .tab-content {
+            display: none;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .mini-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
             margin-bottom: 15px;
         }
         
-        .no-session p {
-            color: #718096;
-            font-size: 1.2em;
+        .mini-stat {
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .mini-stat.live-updating {
+            background: #e6fffa;
+            border: 2px solid #48bb78;
         }
         
-        #webcam {
-            display: none;
+        .mini-stat h4 {
+            color: #667eea;
+            font-size: 0.75em;
+            margin-bottom: 6px;
         }
+        
+        .mini-stat .value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            padding: 10px;
+        }
+        
+        .heatmap-day {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            background: #ebedf0;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .heatmap-day:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .heatmap-day::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d3748;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 10;
+        }
+        
+        .heatmap-day:hover::after {
+            opacity: 1;
+        }
+        
+        .heatmap-day.level-0 { background: #ebedf0; }
+        .heatmap-day.level-1 { background: #c6e48b; }
+        .heatmap-day.level-2 { background: #7bc96f; }
+        .heatmap-day.level-3 { background: #239a3b; }
+        .heatmap-day.level-4 { background: #196127; }
     </style>
 </head>
 <body class="gradient-purple">
-    <div id="alertBanner" class="alert-banner">
-        ⚠️ GET BACK TO WORK! ⚠️<br>
-        <span style="font-size: 0.5em;">Focus on your studies NOW!</span>
-    </div>
-    
     <div class="container">
-        <div class="top-bar">
-            <div class="header">
-                <h1>📚 Focus Tracker</h1>
-                <p style="font-size: 1.2em;">AI-powered study session monitor</p>
-            </div>
-            <div style="display: flex; gap: 15px;">
-                <a href="/profile" class="profile-button" id="profileBtn">
-                    <div class="profile-avatar-small" id="profileAvatarSmall">U</div>
-                    <span id="profileName">User</span>
-                </a>
+        <div class="nav-bar">
+            <a href="/" class="back-btn">
+                <span>←</span>
+                <span>Back to Dashboard</span>
+            </a>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div id="activeSessionBadge" style="display: none;" class="active-session-badge">
+                    <div class="live-indicator"></div>
+                    Session Active
+                </div>
                 <a href="/logout" class="logout-btn">Logout</a>
             </div>
         </div>
-
-        <div id="statusBanner" class="status-banner hidden">
-            <div id="statusIndicator" class="status-indicator status-studying"></div>
-            <div id="statusText" class="status-text">🟢 Studying</div>
-        </div>
-
-        <video id="webcam" autoplay playsinline muted></video>
-
-        <div id="timerDisplay" class="timer-display">
-            <div class="timer-main" id="timerText">00:00</div>
-            <div class="timer-label">Session Time</div>
+        
+        <div class="main-content">
+            <div class="left-panel">
+                <div class="profile-card">
+                    <div class="profile-avatar" id="profileAvatar" onclick="document.getElementById('fileUpload').click()">
+                        <span id="profileInitial">P</span>
+                    </div>
+                    <input type="file" id="fileUpload" accept="image/*">
+                    <h1 class="profile-name" id="profileName">Loading...</h1>
+                    <p class="profile-meta">
+                        📧 <span id="userEmail">loading@example.com</span><br>
+                        📅 Member since <span id="joinedDate">...</span>
+                    </p>
+                    <button class="upload-btn" onclick="document.getElementById('fileUpload').click()">
+                        Upload Photo
+                    </button>
+                    <div class="username-edit">
+                        <input type="text" id="newUsername" placeholder="New username">
+                        <button onclick="updateUsername()">Update</button>
+                    </div>
+                </div>
+                
+                <div class="theme-card">
+                    <h3>Choose Your Theme</h3>
+                    <div class="theme-options">
+                        <div class="theme-option gradient-purple active" onclick="changeTheme('gradient-purple')"></div>
+                        <div class="theme-option gradient-blue" onclick="changeTheme('gradient-blue')"></div>
+                        <div class="theme-option gradient-sunset" onclick="changeTheme('gradient-sunset')"></div>
+                        <div class="theme-option gradient-forest" onclick="changeTheme('gradient-forest')"></div>
+                        <div class="theme-option gradient-night" onclick="changeTheme('gradient-night')"></div>
+                    </div>
+                </div>
+            </div>
             
-            <div class="live-stats">
-                <div class="live-stat">
-                    <div class="live-stat-value" id="liveStudyTime">0:00</div>
-                    <div class="live-stat-label">📖 Studying</div>
-                </div>
-                <div class="live-stat">
-                    <div class="live-stat-value" id="liveAwayTime">0:00</div>
-                    <div class="live-stat-label">⏸️ Away</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="controls">
-            <div class="controls-row">
-                <div class="timer-setup" id="timerSetup">
-                    <label>⏱️ Timer:</label>
-                    <input type="number" id="timerMinutes" min="1" max="180" value="25">
-                    <span>minutes</span>
-                </div>
-                <button class="btn btn-primary" id="startBtn" onclick="startSession()">Start Session</button>
-                <button class="btn btn-danger hidden" id="endBtn" onclick="endSession()">End Session</button>
-            </div>
-        </div>
-        
-        <div id="dashboard" class="hidden">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>📖 Study Time</h3>
-                    <div class="value" id="studyTime">0:00</div>
-                    <div class="label">time focused</div>
-                </div>
-                
-                <div class="stat-card">
-                    <h3>🎯 Focus Score</h3>
-                    <div class="value" id="focusScore">100%</div>
-                    <div class="label">productivity rate</div>
+            <div class="right-panel">
+                <div class="stats-grid">
+                    <div class="stat-card" id="sessionsCard">
+                        <h3>Sessions</h3>
+                        <div class="value" id="totalSessions">0</div>
+                        <div class="label">completed</div>
+                    </div>
+                    <div class="stat-card" id="hoursCard">
+                        <h3>Hours</h3>
+                        <div class="value" id="totalHours">0h</div>
+                        <div class="label">studied</div>
+                    </div>
+                    <div class="stat-card" id="focusCard">
+                        <h3>Focus</h3>
+                        <div class="value" id="avgFocus">0%</div>
+                        <div class="label">average</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Streak</h3>
+                        <div class="value" id="currentStreak">0</div>
+                        <div class="label">days</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Longest</h3>
+                        <div class="value" id="longestSession">0:00</div>
+                        <div class="label">session</div>
+                    </div>
+                    <div class="stat-card" id="alertsCard">
+                        <h3>Alerts</h3>
+                        <div class="value" id="totalAlerts">0</div>
+                        <div class="label">caught</div>
+                    </div>
                 </div>
                 
-                <div class="stat-card">
-                    <h3>⏸️ Time Away</h3>
-                    <div class="value" id="awayTime">0:00</div>
-                    <div class="label">distracted time</div>
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('day', event)">Today</button>
+                    <button class="tab" onclick="switchTab('week', event)">This Week</button>
+                    <button class="tab" onclick="switchTab('month', event)">This Month</button>
                 </div>
                 
-                <div class="stat-card">
-                    <h3>⚠️ Alerts</h3>
-                    <div class="value" id="alertsCount">0</div>
-                    <div class="label">warnings issued</div>
+                <div id="dayTab" class="tab-content active">
+                    <div class="mini-stats">
+                        <div class="mini-stat" id="dayStudyTimeStat">
+                            <h4>Study Time</h4>
+                            <div class="value" id="dayStudyTime">0h</div>
+                        </div>
+                        <div class="mini-stat" id="daySessionsStat">
+                            <h4>Sessions</h4>
+                            <div class="value" id="daySessions">0</div>
+                        </div>
+                        <div class="mini-stat" id="dayFocusScoreStat">
+                            <h4>Focus Score</h4>
+                            <div class="value" id="dayFocusScore">0%</div>
+                        </div>
+                        <div class="mini-stat" id="dayAlertsStat">
+                            <h4>Alerts</h4>
+                            <div class="value" id="dayAlerts">0</div>
+                        </div>
+                    </div>
+                    <div class="chart-section">
+                        <h2>Today's Activity</h2>
+                        <div class="chart-container">
+                            <canvas id="dayChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="weekTab" class="tab-content">
+                    <div class="mini-stats">
+                        <div class="mini-stat">
+                            <h4>Study Time</h4>
+                            <div class="value" id="weekStudyTime">0h</div>
+                        </div>
+                        <div class="mini-stat">
+                            <h4>Sessions</h4>
+                            <div class="value" id="weekSessions">0</div>
+                        </div>
+                        <div class="mini-stat">
+                            <h4>Focus Score</h4>
+                            <div class="value" id="weekFocusScore">0%</div>
+                        </div>
+                        <div class="mini-stat">
+                            <h4>Daily Avg</h4>
+                            <div class="value" id="weekAvg">0h</div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; flex: 1; min-height: 0;">
+                        <div class="chart-section">
+                            <h2>Weekly Activity</h2>
+                            <div class="chart-container">
+                                <canvas id="weekChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-section">
+                            <h2>Week Heatmap</h2>
+                            <div id="weekHeatmap" class="heatmap-grid"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="monthTab" class="tab-content">
+                    <div class="mini-stats">
+                        <div class="mini-stat">
+                            <h4>Study Time</h4>
+                            <div class="value" id="monthStudyTime">0h</div>
+                        </div>
+                        <div class="mini-stat">
+                            <h4>Sessions</h4>
+                            <div class="value" id="monthSessions">0</div>
+                        </div>
+                        <div class="mini-stat">
+                            <h4>Focus Score</h4>
+                            <div class="value" id="monthFocusScore">0%</div>
+                        </div>
+                        <div class="mini-stat">
+                            <h4>Best Day</h4>
+                            <div class="value" id="monthBestDay">-</div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; flex: 1; min-height: 0;">
+                        <div class="chart-section">
+                            <h2>Monthly Progress</h2>
+                            <div class="chart-container">
+                                <canvas id="monthChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-section">
+                            <h2>Month Heatmap</h2>
+                            <div id="monthHeatmap" class="heatmap-grid"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div id="noSession" class="no-session">
-            <h2>No Active Session</h2>
-            <p>Set a timer and start tracking your focus!</p>
         </div>
     </div>
     
     <script>
-        let faceDetectionModel = null;
-        let videoStream = null;
-        let detectionInterval = null;
-        let sessionActive = false;
-        let currentStatus = "studying";
-        let framesWithoutFace = 0;
-        let awayStartTime = null;
-        let awayWarnings = 0;
-        let lastAlertTime = 0;
+        let dayChart, weekChart, monthChart;
+        let currentUser = null;
+        let currentTab = 'day';
         let updateInterval = null;
-        let sessionStartTime = null;
+        let hasActiveSession = false;
+        let lifetimeStats = null;
         
-        // Synced timers
-        let localStudyTime = 0;
-        let localAwayTime = 0;
-        let lastStatusChangeTime = null;
-        
-        // Web Speech API for voice alerts
-        const synth = window.speechSynthesis;
-        let voiceEnabled = true;
-        let currentTheme = 'gradient-purple';
-        
-        const warningMessages = [
-            "Hey! Stop looking away and get back to studying!",
-            "Focus! Your study session is running!",
-            "Get back to work right now!",
-            "Stop wasting time! Focus on your studies!",
-            "You need to concentrate! Back to your books!",
-            "Come on! Your timer is still running. Get back to work!"
-        ];
-        
-        let currentMessageIndex = 0;
-        
-        async function loadFaceDetection() {
+        async function checkActiveSession() {
             try {
-                console.log('Loading face detection model...');
-                faceDetectionModel = await blazeface.load();
-                console.log('✅ Face detection model loaded');
-            } catch (error) {
-                console.error('Failed to load face detection:', error);
-                alert('Failed to load face detection model. Please refresh the page.');
-            }
-        }
-        
-        async function startWebcam() {
-            try {
-                videoStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 640, height: 480 } 
-                });
-                document.getElementById('webcam').srcObject = videoStream;
-                console.log('✅ Webcam started');
-                return true;
-            } catch (error) {
-                console.error('Camera access denied:', error);
-                alert('Camera access is required for face detection. Please allow camera permissions.');
-                return false;
-            }
-        }
-        
-        async function detectFaces() {
-            if (!faceDetectionModel || !videoStream) return;
-            
-            const video = document.getElementById('webcam');
-            const predictions = await faceDetectionModel.estimateFaces(video, false);
-            
-            const hasFace = predictions && predictions.length > 0;
-            
-            if (!hasFace) {
-                framesWithoutFace++;
-                if (framesWithoutFace >= 10) {
-                    if (currentStatus !== 'away') {
-                        switchStatus('away');
-                    }
-                    
-                    if (awayStartTime) {
-                        const timeAway = (Date.now() - awayStartTime) / 1000;
-                        const now = Date.now();
-                        
-                        if (timeAway >= 30 && (now - lastAlertTime) >= 30000) {
-                            awayWarnings++;
-                            triggerAlert();
-                            lastAlertTime = now;
-                            
-                            if (awayWarnings >= 3) {
-                                alert('Too much time away! Session will end.');
-                                endSession();
-                            }
-                        }
-                    }
-                }
-            } else {
-                if (framesWithoutFace >= 10) {
-                    console.log('✅ Face detected - back to studying');
-                }
-                framesWithoutFace = 0;
-                awayStartTime = null;
-                awayWarnings = 0;
-                
-                if (currentStatus !== 'studying') {
-                    switchStatus('studying');
-                }
-            }
-        }
-        
-        function switchStatus(newStatus) {
-            const now = Date.now();
-            
-            // Update local counters based on previous status
-            if (lastStatusChangeTime) {
-                const elapsed = (now - lastStatusChangeTime) / 1000;
-                if (currentStatus === 'studying') {
-                    localStudyTime += elapsed;
-                } else if (currentStatus === 'away') {
-                    localAwayTime += elapsed;
-                }
-            }
-            
-            currentStatus = newStatus;
-            lastStatusChangeTime = now;
-            
-            if (newStatus === 'away') {
-                awayStartTime = now;
-            }
-            
-            updateStatusUI(newStatus);
-            sendStatusToServer(newStatus);
-            updateLiveStats();
-        }
-        
-        function updateStatusUI(status) {
-            const banner = document.getElementById('statusBanner');
-            const indicator = document.getElementById('statusIndicator');
-            const text = document.getElementById('statusText');
-            
-            banner.classList.remove('hidden');
-            
-            if (status === 'studying') {
-                text.textContent = '🟢 Studying';
-                indicator.className = 'status-indicator status-studying';
-            } else {
-                text.textContent = '🟠 Away';
-                indicator.className = 'status-indicator status-away';
-            }
-        }
-        
-        function speakAlert(message) {
-            if (!voiceEnabled || !synth) {
-                console.log('⚠️ Voice alerts not available');
-                return;
-            }
-            
-            try {
-                // Cancel any ongoing speech
-                synth.cancel();
-                
-                const utterance = new SpeechSynthesisUtterance(message);
-                utterance.rate = 1.1;
-                utterance.pitch = 1.0;
-                utterance.volume = 1.0;
-                utterance.lang = 'en-US';
-                
-                // Wait for voices to load
-                const setVoice = () => {
-                    const voices = synth.getVoices();
-                    if (voices.length > 0) {
-                        const preferredVoice = voices.find(v => 
-                            v.name.includes('Google') || 
-                            v.name.includes('Male') ||
-                            v.lang.includes('en')
-                        ) || voices[0];
-                        
-                        utterance.voice = preferredVoice;
-                        synth.speak(utterance);
-                        console.log('🔊 Voice alert triggered:', message);
-                    }
-                };
-                
-                if (synth.getVoices().length > 0) {
-                    setVoice();
+                const response = await fetch('/session/current');
+                if (response.ok) {
+                    hasActiveSession = true;
+                    document.getElementById('activeSessionBadge').style.display = 'flex';
+                    updateLiveStats();
                 } else {
-                    synth.addEventListener('voiceschanged', setVoice, { once: true });
+                    hasActiveSession = false;
+                    document.getElementById('activeSessionBadge').style.display = 'none';
+                    removeLiveIndicators();
                 }
             } catch (error) {
-                console.error('Voice alert error:', error);
+                hasActiveSession = false;
+                document.getElementById('activeSessionBadge').style.display = 'none';
+                removeLiveIndicators();
             }
         }
-        
-        function triggerAlert() {
-            const message = warningMessages[currentMessageIndex];
-            currentMessageIndex = (currentMessageIndex + 1) % warningMessages.length;
-            
-            // Visual alert
-            const banner = document.getElementById('alertBanner');
-            banner.innerHTML = `⚠️ ${message.toUpperCase()} ⚠️`;
-            banner.style.display = 'block';
-            
-            setTimeout(() => {
-                banner.style.display = 'none';
-            }, 5000);
-            
-            // Voice alert
-            speakAlert(message);
-            
-            sendStatusToServer('away', {
-                message: message,
-                timestamp: new Date().toISOString(),
-                type: 'both',
-                alert_level: 'warning'
+
+        async function updateLiveStats() {
+            if (!hasActiveSession) return;
+
+            try {
+                const response = await fetch('/session/current');
+                if (!response.ok) {
+                    hasActiveSession = false;
+                    document.getElementById('activeSessionBadge').style.display = 'none';
+                    removeLiveIndicators();
+                    return;
+                }
+
+                const data = await response.json();
+                
+                // Add live indicators
+                document.getElementById('sessionsCard').classList.add('live-updating');
+                document.getElementById('hoursCard').classList.add('live-updating');
+                document.getElementById('focusCard').classList.add('live-updating');
+                document.getElementById('alertsCard').classList.add('live-updating');
+
+                // Update lifetime stats with current session
+                if (lifetimeStats) {
+                    const currentSessionHours = data.metrics.studying_time / 3600;
+                    const totalHours = lifetimeStats.total_study_hours + currentSessionHours;
+                    document.getElementById('totalHours').textContent = totalHours.toFixed(1) + 'h';
+                    
+                    const totalSessions = lifetimeStats.total_sessions + 1;
+                    document.getElementById('totalSessions').textContent = totalSessions;
+
+                    const totalAlerts = lifetimeStats.total_alerts + data.metrics.total_alerts;
+                    document.getElementById('totalAlerts').textContent = totalAlerts;
+
+                    // Recalculate average focus score
+                    const totalFocusScore = (lifetimeStats.average_focus_score * lifetimeStats.total_sessions) + data.metrics.focus_score;
+                    const avgFocus = totalFocusScore / totalSessions;
+                    document.getElementById('avgFocus').textContent = avgFocus.toFixed(1) + '%';
+                }
+
+                // Update today's stats if on day tab
+                if (currentTab === 'day') {
+                    document.getElementById('dayStudyTimeStat').classList.add('live-updating');
+                    document.getElementById('daySessionsStat').classList.add('live-updating');
+                    document.getElementById('dayFocusScoreStat').classList.add('live-updating');
+                    document.getElementById('dayAlertsStat').classList.add('live-updating');
+
+                    // Reload analytics to include current session
+                    await loadAnalytics('day');
+                }
+
+            } catch (error) {
+                console.error('Error updating live stats:', error);
+            }
+        }
+
+        function removeLiveIndicators() {
+            document.querySelectorAll('.live-updating').forEach(el => {
+                el.classList.remove('live-updating');
             });
         }
         
-        async function sendStatusToServer(status, alert = null) {
+        async function loadProfile() {
             try {
-                await fetch('/session/status-update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status, alert })
-                });
-            } catch (error) {
-                console.error('Failed to send status:', error);
-            }
-        }
-        
-        function updateLiveStats() {
-            const now = Date.now();
-            if (lastStatusChangeTime) {
-                const elapsed = (now - lastStatusChangeTime) / 1000;
-                if (currentStatus === 'studying') {
-                    document.getElementById('liveStudyTime').textContent = formatTime(localStudyTime + elapsed);
-                    document.getElementById('liveAwayTime').textContent = formatTime(localAwayTime);
-                } else {
-                    document.getElementById('liveStudyTime').textContent = formatTime(localStudyTime);
-                    document.getElementById('liveAwayTime').textContent = formatTime(localAwayTime + elapsed);
+                const response = await fetch('/user/profile');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
                 }
-            }
-        }
-        
-        async function startSession() {
-            const minutes = parseInt(document.getElementById('timerMinutes').value);
-            
-            if (!minutes || minutes < 1) {
-                alert('Please set a valid timer duration');
-                return;
-            }
-            
-            // Initialize voice if not already done
-            if (synth && synth.getVoices().length === 0) {
-                synth.addEventListener('voiceschanged', () => {
-                    console.log('✅ Voices loaded:', synth.getVoices().length);
-                });
-            }
-            
-            const webcamStarted = await startWebcam();
-            if (!webcamStarted) return;
-            
-            try {
-                const response = await fetch('/session/start', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ timer_duration: minutes })
-                });
-                
-                if (response.ok) {
-                    sessionActive = true;
-                    sessionStartTime = Date.now();
-                    localStudyTime = 0;
-                    localAwayTime = 0;
-                    lastStatusChangeTime = Date.now();
-                    currentStatus = 'studying';
-                    
-                    document.getElementById('startBtn').classList.add('hidden');
-                    document.getElementById('endBtn').classList.remove('hidden');
-                    document.getElementById('dashboard').classList.remove('hidden');
-                    document.getElementById('noSession').classList.add('hidden');
-                    document.getElementById('timerSetup').style.display = 'none';
-                    document.getElementById('timerDisplay').classList.add('active');
-                    document.getElementById('statusBanner').classList.remove('hidden');
-                    
-                    detectionInterval = setInterval(detectFaces, 1000);
-                    updateInterval = setInterval(() => {
-                        updateSessionTimer();
-                        updateLiveStats();
-                        updateStats();
-                    }, 1000);
-                    
-                    updateStatusUI('studying');
-                    console.log('✅ Session started');
-                }
-            } catch (error) {
-                console.error('Failed to start session:', error);
-                alert('Failed to start session!');
-            }
-        }
-        
-        function updateSessionTimer() {
-            if (!sessionActive || !sessionStartTime) return;
-            
-            const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
-            const minutes = Math.floor(elapsed / 60);
-            const seconds = elapsed % 60;
-            
-            document.getElementById('timerText').textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-        
-        async function updateStats() {
-            if (!sessionActive) return;
-            
-            try {
-                const response = await fetch('/session/current');
-                const data = await response.json();
-                
-                document.getElementById('studyTime').textContent = formatTime(data.metrics.studying_time);
-                document.getElementById('focusScore').textContent = Math.round(data.metrics.focus_score) + '%';
-                document.getElementById('awayTime').textContent = formatTime(data.metrics.away_time);
-                document.getElementById('alertsCount').textContent = data.metrics.total_alerts;
-            } catch (error) {
-                console.error('Failed to update stats:', error);
-            }
-        }
-        
-        async function endSession() {
-            if (!sessionActive) return;
-            
-            sessionActive = false;
-            clearInterval(detectionInterval);
-            clearInterval(updateInterval);
-            
-            if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
-                videoStream = null;
-            }
-            
-            // Cancel any ongoing speech
-            if (synth) {
-                synth.cancel();
-            }
-            
-            try {
-                const response = await fetch('/session/end', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
                 
                 const data = await response.json();
-                alert(`Session ended!\n\nStudy time: ${formatTime(data.final_stats.studying_time)}\nFocus score: ${Math.round(data.final_stats.focus_score)}%`);
+                currentUser = data;
+                lifetimeStats = data.stats;
                 
-                document.getElementById('startBtn').classList.remove('hidden');
-                document.getElementById('endBtn').classList.add('hidden');
-                document.getElementById('dashboard').classList.add('hidden');
-                document.getElementById('noSession').classList.remove('hidden');
-                document.getElementById('timerSetup').style.display = 'flex';
-                document.getElementById('timerDisplay').classList.remove('active');
-                document.getElementById('statusBanner').classList.add('hidden');
-            } catch (error) {
-                console.error('Failed to end session:', error);
-            }
-        }
-        
-        function formatTime(seconds) {
-            if (!seconds) return '0:00';
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
-        
-        async function loadUser() {
-            try {
-                const response = await fetch('/api/current-user');
-                const user = await response.json();
+                // Apply theme
+                document.body.className = data.background_theme || 'gradient-purple';
+                document.querySelectorAll('.theme-option').forEach(opt => {
+                    opt.classList.remove('active');
+                    if (opt.classList.contains(data.background_theme)) {
+                        opt.classList.add('active');
+                    }
+                });
                 
-                document.getElementById('profileName').textContent = user.name;
+                // Update profile info
+                document.getElementById('profileName').textContent = data.user_name;
+                document.getElementById('userEmail').textContent = data.email;
+                document.getElementById('joinedDate').textContent = new Date(data.joined_date).toLocaleDateString();
                 
-                // Update theme
-                if (user.background_theme) {
-                    currentTheme = user.background_theme;
-                    document.body.className = currentTheme;
-                }
-                
-                // Update profile avatar
-                const avatar = document.getElementById('profileAvatarSmall');
-                if (user.profile_picture) {
-                    avatar.innerHTML = `<img src="${user.profile_picture}?t=${Date.now()}" alt="Profile">`;
+                // Update profile picture
+                const avatar = document.getElementById('profileAvatar');
+                const initial = document.getElementById('profileInitial');
+                if (data.profile_picture) {
+                    initial.style.display = 'none';
+                    let img = avatar.querySelector('img');
+                    if (!img) {
+                        img = document.createElement('img');
+                        avatar.appendChild(img);
+                    }
+                    img.src = data.profile_picture;
+                    img.alt = data.user_name;
                 } else {
-                    avatar.textContent = user.name.charAt(0).toUpperCase();
+                    initial.textContent = data.user_name.charAt(0).toUpperCase();
+                    initial.style.display = 'block';
+                    const img = avatar.querySelector('img');
+                    if (img) img.remove();
                 }
+                
+                // Update stats
+                document.getElementById('totalSessions').textContent = data.stats.total_sessions;
+                document.getElementById('totalHours').textContent = data.stats.total_study_hours + 'h';
+                document.getElementById('avgFocus').textContent = data.stats.average_focus_score + '%';
+                document.getElementById('currentStreak').textContent = data.stats.current_streak;
+                document.getElementById('longestSession').textContent = formatTime(data.stats.longest_session);
+                document.getElementById('totalAlerts').textContent = data.stats.total_alerts;
+                
+                // Check for active session
+                await checkActiveSession();
+                
+                // Load analytics
+                await loadAnalytics('day');
+
+                // Start update interval if session is active
+                if (hasActiveSession) {
+                    updateInterval = setInterval(updateLiveStats, 2000);
+                }
+                
             } catch (error) {
+                console.error('Error loading profile:', error);
                 window.location.href = '/login';
             }
         }
         
-        // Reload user data every 5 seconds to catch profile changes
-        setInterval(loadUser, 5000);
+        async function updateUsername() {
+            const newName = document.getElementById('newUsername').value.trim();
+            if (!newName) {
+                alert('Please enter a new username');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/user/profile', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_name: currentUser.user_name,
+                        new_name: newName
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    alert('Username updated successfully!');
+                    location.reload();
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Failed to update username');
+                }
+            } catch (error) {
+                console.error('Error updating username:', error);
+                alert('Failed to update username');
+            }
+        }
         
-        // Initialize
-        loadUser();
-        loadFaceDetection();
+        async function uploadProfilePicture() {
+            const fileInput = document.getElementById('fileUpload');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/user/profile/picture', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const avatar = document.getElementById('profileAvatar');
+                    const initial = document.getElementById('profileInitial');
+                    initial.style.display = 'none';
+                    
+                    const existingImg = avatar.querySelector('img');
+                    if (existingImg) existingImg.remove();
+                    
+                    const img = document.createElement('img');
+                    img.src = data.url;
+                    img.alt = currentUser.user_name;
+                    avatar.appendChild(img);
+                    
+                    alert('Profile picture updated!');
+                }
+            } catch (error) {
+                console.error('Error uploading picture:', error);
+                alert('Failed to upload picture');
+            }
+        }
+        
+        async function changeTheme(theme) {
+            document.body.className = theme;
+            
+            document.querySelectorAll('.theme-option').forEach(opt => {
+                opt.classList.remove('active');
+                if (opt.classList.contains(theme)) {
+                    opt.classList.add('active');
+                }
+            });
+            
+            try {
+                await fetch('/user/profile', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_name: currentUser.user_name,
+                        background_theme: theme
+                    })
+                });
+            } catch (error) {
+                console.error('Error updating theme:', error);
+            }
+        }
+        
+        function switchTab(tab, event) {
+            currentTab = tab;
+            
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(tab + 'Tab').classList.add('active');
+            
+            removeLiveIndicators();
+            loadAnalytics(tab);
+        }
+        
+        async function loadAnalytics(period) {
+            try {
+                const response = await fetch(`/analytics/${period}`);
+                const data = await response.json();
+                let analytics = data.analytics;
+                
+                // If there's an active session and we're looking at today, include it
+                if (hasActiveSession && period === 'day') {
+                    const sessionResponse = await fetch('/session/current');
+                    if (sessionResponse.ok) {
+                        const sessionData = await sessionResponse.json();
+                        const today = new Date().toISOString().split('T')[0];
+                        
+                        // Merge current session with analytics
+                        if (!analytics.daily_breakdown[today]) {
+                            analytics.daily_breakdown[today] = {
+                                studying: 0,
+                                distracted: 0,
+                                sessions: 0
+                            };
+                        }
+                        
+                        analytics.daily_breakdown[today].studying += sessionData.metrics.studying_time;
+                        analytics.daily_breakdown[today].distracted += sessionData.metrics.distracted_time + sessionData.metrics.away_time;
+                        analytics.daily_breakdown[today].sessions += 1;
+                        
+                        analytics.total_studying_hours += sessionData.metrics.studying_time / 3600;
+                        analytics.total_sessions += 1;
+                        analytics.total_alerts += sessionData.metrics.total_alerts;
+                        
+                        // Recalculate focus score
+                        const totalTime = sessionData.metrics.studying_time + sessionData.metrics.distracted_time + sessionData.metrics.away_time;
+                        if (totalTime > 0) {
+                            const originalTotal = (analytics.total_studying_hours - sessionData.metrics.studying_time / 3600) * 3600 / (analytics.focus_score / 100 || 1);
+                            const newTotal = originalTotal + totalTime;
+                            const newStudying = (analytics.total_studying_hours * 3600);
+                            analytics.focus_score = newTotal > 0 ? (newStudying / newTotal * 100) : 100;
+                        }
+                    }
+                }
+                
+                const prefix = period;
+                document.getElementById(prefix + 'StudyTime').textContent = analytics.total_studying_hours.toFixed(1) + 'h';
+                document.getElementById(prefix + 'Sessions').textContent = analytics.total_sessions;
+                document.getElementById(prefix + 'FocusScore').textContent = analytics.focus_score.toFixed(1) + '%';
+                
+                if (period === 'day') {
+                    document.getElementById('dayAlerts').textContent = analytics.total_alerts;
+                    renderDayChart(analytics.daily_breakdown);
+                } else if (period === 'week') {
+                    document.getElementById('weekAvg').textContent = 
+                        (analytics.total_studying_hours / 7).toFixed(1) + 'h';
+                    renderWeekChart(analytics.daily_breakdown);
+                    renderHeatmap('weekHeatmap', analytics.daily_breakdown, 7);
+                } else if (period === 'month') {
+                    const dailyData = analytics.daily_breakdown;
+                    let bestDay = '-';
+                    let maxTime = 0;
+                    for (const [day, data] of Object.entries(dailyData)) {
+                        if (data.studying > maxTime) {
+                            maxTime = data.studying;
+                            bestDay = new Date(day).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'});
+                        }
+                    }
+                    document.getElementById('monthBestDay').textContent = bestDay;
+                    renderMonthChart(analytics.daily_breakdown);
+                    renderHeatmap('monthHeatmap', analytics.daily_breakdown, 30);
+                }
+                
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+            }
+        }
+        
+        function renderDayChart(dailyData) {
+            const ctx = document.getElementById('dayChart');
+            if (!ctx) return;
+            
+            if (dayChart) dayChart.destroy();
+            
+            const today = new Date().toISOString().split('T')[0];
+            const data = dailyData[today] || {studying: 0, distracted: 0, sessions: 0};
+            
+            const studyMinutes = (data.studying / 60).toFixed(0);
+            const awayMinutes = (data.distracted / 60).toFixed(0);
+            
+            dayChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Studying', 'Away/Distracted'],
+                    datasets: [{
+                        label: 'Time (minutes)',
+                        data: [studyMinutes, awayMinutes],
+                        backgroundColor: ['#48bb78', '#ed8936']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${data.sessions} session${data.sessions !== 1 ? 's' : ''} today`
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Minutes'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderWeekChart(dailyData) {
+            const ctx = document.getElementById('weekChart');
+            if (!ctx) return;
+            
+            if (weekChart) weekChart.destroy();
+            
+            const labels = [];
+            const studyData = [];
+            
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateKey = date.toISOString().split('T')[0];
+                
+                labels.push(date.toLocaleDateString('en-US', {weekday: 'short'}));
+                const dayData = dailyData[dateKey] || {studying: 0};
+                studyData.push((dayData.studying / 3600).toFixed(1));
+            }
+            
+            weekChart = new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Study Hours',
+                        data: studyData,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderMonthChart(dailyData) {
+            const ctx = document.getElementById('monthChart');
+            if (!ctx) return;
+            
+            if (monthChart) monthChart.destroy();
+            
+            const labels = [];
+            const studyData = [];
+            
+            for (let i = 29; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateKey = date.toISOString().split('T')[0];
+                
+                if (i % 3 === 0) {
+                    labels.push(date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'}));
+                } else {
+                    labels.push('');
+                }
+                
+                const dayData = dailyData[dateKey] || {studying: 0};
+                studyData.push((dayData.studying / 3600).toFixed(1));
+            }
+            
+            monthChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Study Hours',
+                        data: studyData,
+                        backgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderHeatmap(containerId, dailyData, days) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            const today = new Date();
+            for (let i = days - 1; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateKey = date.toISOString().split('T')[0];
+                
+                const dayData = dailyData[dateKey];
+                const hours = dayData ? (dayData.studying / 3600).toFixed(1) : 0;
+                
+                let level = 0;
+                if (hours > 0) level = 1;
+                if (hours > 1) level = 2;
+                if (hours > 2) level = 3;
+                if (hours > 3) level = 4;
+                
+                const box = document.createElement('div');
+                box.className = `heatmap-day level-${level}`;
+                box.setAttribute('data-tooltip', `${date.toLocaleDateString()}: ${hours}h`);
+                container.appendChild(box);
+            }
+        }
+        
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            
+            seconds = Math.floor(seconds);
+            const hours = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            
+            if (hours > 0) {
+                return `${hours}:${mins.toString().padStart(2, '0')}`;
+            }
+            return `${mins}:00`;
+        }
+        
+        // Auto-upload profile picture on file selection
+        document.getElementById('fileUpload').addEventListener('change', uploadProfilePicture);
+        
+        // Load profile on page load
+        loadProfile();
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+        });
     </script>
 </body>
 </html>

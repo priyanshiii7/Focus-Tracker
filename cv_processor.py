@@ -133,7 +133,9 @@ class CVProcessor:
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
             self.cap = cv2.VideoCapture(1)
-        
+        self.status_stability_counter = 0
+        self.status_stability_threshold = 3
+
         # Ultra-optimized camera settings
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 240)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 180)
@@ -164,6 +166,8 @@ class CVProcessor:
         
         while self.is_running:
             ret, frame = self.cap.read()
+            status = self.detector.detect_status(frame)
+
             
             if not ret or frame is None:
                 time.sleep(0.1)
@@ -179,11 +183,16 @@ class CVProcessor:
             
             # Status change callback
             if status != self.current_status:
-                print(f"🔄 Status changed: {self.current_status} → {status}")
-                self.current_status = status
-                
-                if self.callback:
-                    self.callback(status, None)
+                self.status_stability_counter += 1
+                if self.status_stability_counter >= self.status_stability_threshold:
+                    print(f"🔄 Status changed: {self.current_status} → {status}")
+                    self.current_status = status
+                    self.status_stability_counter = 0
+                    if self.callback:
+                        self.callback(status, None)
+            else:
+                self.status_stability_counter = 0
+
             
             # Handle away status for alerts
             if status == "away":
@@ -248,8 +257,6 @@ class CVProcessor:
                     self.away_warnings = 0
             
             time.sleep(0.2)
-        self.status_stability_counter = 0
-        self.status_stability_threshold = 3  # Require 3 stable frames before switching
         print("🛑 CV Processing loop ended")
     
     def get_frame(self):
