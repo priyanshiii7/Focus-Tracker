@@ -137,7 +137,7 @@ class CVProcessor:
         # Ultra-optimized camera settings
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 240)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 180)
-        self.cap.set(cv2.CAP_PROP_FPS, 10)
+        self.cap.set(cv2.CAP_PROP_FPS, 15)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
         self.is_running = False
@@ -229,6 +229,17 @@ class CVProcessor:
                             })
                         self.stop()
                         return
+                    if status != self.current_status:
+                        self.status_stability_counter += 1
+
+                    if self.status_stability_counter >= self.status_stability_threshold:
+                        print(f"🔄 Status changed: {self.current_status} → {status}")
+                        self.current_status = status
+                        self.status_stability_counter = 0
+                        if self.callback:
+                            self.callback(status, None)
+                else:
+                    self.status_stability_counter = 0
             else:
                 # Reset away tracking
                 if self.away_start_time is not None:
@@ -236,8 +247,9 @@ class CVProcessor:
                     self.away_start_time = None
                     self.away_warnings = 0
             
-            time.sleep(0.5)
-        
+            time.sleep(0.2)
+        self.status_stability_counter = 0
+        self.status_stability_threshold = 3  # Require 3 stable frames before switching
         print("🛑 CV Processing loop ended")
     
     def get_frame(self):
