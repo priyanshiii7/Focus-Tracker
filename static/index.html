@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Focus Tracker - Study Session Monitor</title>
     
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/static/favicon.png">
-    
     <!-- TensorFlow.js for browser-based face detection -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7"></script>
@@ -410,26 +407,35 @@
         let sessionActive = false;
         let currentStatus = "studying";
         let framesWithoutFace = 0;
-        let framesWithFace = 0; // NEW: Track consecutive frames WITH face
+        let framesWithFace = 0;
         let awayStartTime = null;
         let awayWarnings = 0;
         let lastAlertTime = 0;
-        let updateInterval = null;
-        let timerInterval = null;
         let timerEndTime = null;
         let sessionStartTime = null;
         let lastDetectionTime = 0;
+        
+        // Single unified update interval
+        let mainUpdateInterval = null;
         
         // Debug info
         let totalDetections = 0;
         let facesDetected = 0;
         
+        // IMPROVED THRESHOLDS
+        const AWAY_THRESHOLD = 8;        // 8 consecutive no-face frames (≈8 seconds)
+        const RETURN_THRESHOLD = 3;      // Only 3 frames needed to return (≈3 seconds)
+        const DETECTION_INTERVAL = 1000; // Check every 1 second
+        const ALERT_COOLDOWN = 60000;    // 60 seconds between alerts
+        const AWAY_ALERT_TIME = 60;      // Alert after 60 seconds away
+        
         function updateDebugInfo(hasFace, detectionCount) {
             const indicator = document.getElementById('debugIndicator');
             if (sessionActive) {
                 const accuracy = totalDetections > 0 ? Math.round((facesDetected / totalDetections) * 100) : 0;
+                const statusEmoji = hasFace ? '✅' : '❌';
                 indicator.className = hasFace ? 'debug-indicator detecting' : 'debug-indicator';
-                indicator.textContent = `Face: ${hasFace ? 'YES' : 'NO'} | Detections: ${detectionCount || 0} | Accuracy: ${accuracy}%`;
+                indicator.textContent = `${statusEmoji} Face: ${hasFace ? 'YES' : 'NO'} | Frames: ${hasFace ? framesWithFace : framesWithoutFace} | Acc: ${accuracy}%`;
             } else {
                 indicator.textContent = 'Session inactive';
                 indicator.className = 'debug-indicator';
@@ -491,7 +497,7 @@
             }
         }
         
-        // IMPROVED: More reliable face detection
+        // IMPROVED: More reliable face detection with better thresholds
         async function detectFaces() {
             if (!faceDetectionModel || !videoStream || !sessionActive) {
                 return;
@@ -514,7 +520,7 @@
                     return;
                 }
                 
-                // Run face detection with returnTensors: false for better performance
+                // Run face detection
                 const predictions = await faceDetectionModel.estimateFaces(video, false);
                 
                 totalDetections++;
@@ -522,18 +528,25 @@
                 
                 if (hasFace) {
                     facesDetected++;
-                }
-                
-                // Update debug display
-                updateDebugInfo(hasFace, predictions ? predictions.length : 0);
-                
-                if (!hasFace) {
+                    framesWithFace++;
+                    framesWithoutFace = 0; // Reset negative counter
+                    
+                    // EASIER TO RETURN: Only need 3 consecutive frames with face
+                    if (framesWithFace >= RETURN_THRESHOLD && currentStatus === 'away') {
+                        console.log('✅ Face detected - BACK TO STUDYING');
+                        awayStartTime = null;
+                        awayWarnings = 0;
+                        currentStatus = 'studying';
+                        updateStatusUI('studying');
+                        sendStatusToServer('studying');
+                    }
+                } else {
                     framesWithoutFace++;
                     framesWithFace = 0; // Reset positive counter
                     
-                    // INCREASED THRESHOLD: 20 consecutive no-face detections (≈16 seconds)
-                    if (framesWithoutFace >= 20 && currentStatus === 'studying') {
-                        console.log('⚠️ User away - no face detected for 16+ seconds');
+                    // Need more frames to mark as away (8 frames ≈ 8 seconds)
+                    if (framesWithoutFace >= AWAY_THRESHOLD && currentStatus === 'studying') {
+                        console.log('⚠️ User away - no face detected for 8+ seconds');
                         currentStatus = 'away';
                         awayStartTime = Date.now();
                         updateStatusUI('away');
@@ -544,37 +557,24 @@
                     if (currentStatus === 'away' && awayStartTime) {
                         const timeAway = (Date.now() - awayStartTime) / 1000;
                         
-                        // Alert after 60 seconds away (increased from 30s)
-                        if (timeAway >= 60 && (now - lastAlertTime) >= 60000) {
+                        // Alert after 60 seconds away
+                        if (timeAway >= AWAY_ALERT_TIME && (now - lastAlertTime) >= ALERT_COOLDOWN) {
                             awayWarnings++;
                             triggerAlert();
                             lastAlertTime = now;
                             
-                            // End session after 5 warnings (increased from 3)
+                            // End session after 5 warnings
                             if (awayWarnings >= 5) {
                                 alert('Too much time away! Session will end.');
                                 endSession();
                             }
                         }
                     }
-                } else {
-                    // Face detected!
-                    framesWithFace++;
-                    
-                    // IMPORTANT: Require 5 consecutive positive detections before switching back
-                    if (framesWithFace >= 5 && currentStatus === 'away') {
-                        console.log('✅ Face detected - back to studying');
-                        framesWithoutFace = 0;
-                        awayStartTime = null;
-                        awayWarnings = 0;
-                        currentStatus = 'studying';
-                        updateStatusUI('studying');
-                        sendStatusToServer('studying');
-                    } else if (currentStatus === 'studying') {
-                        // Keep resetting counter if already studying
-                        framesWithoutFace = 0;
-                    }
                 }
+                
+                // Update debug display
+                updateDebugInfo(hasFace, predictions ? predictions.length : 0);
+                
             } catch (error) {
                 console.error('Detection error:', error);
                 document.getElementById('debugIndicator').textContent = 'Detection error!';
@@ -651,11 +651,13 @@
             const webcamStarted = await startWebcam();
             if (!webcamStarted) return;
             
-            // Reset detection counters
+            // Reset ALL counters
             totalDetections = 0;
             facesDetected = 0;
             framesWithoutFace = 0;
             framesWithFace = 0;
+            awayWarnings = 0;
+            awayStartTime = null;
             
             try {
                 const response = await fetch('/session/start', {
@@ -678,11 +680,16 @@
                     document.getElementById('timerDisplay').classList.add('active');
                     document.getElementById('statusBanner').classList.remove('hidden');
                     
-                    // Start detection with longer interval (every 1 second instead of 500ms)
-                    detectionInterval = setInterval(detectFaces, 1000);
-                    timerInterval = setInterval(updateTimer, 1000);
-                    updateInterval = setInterval(updateStats, 2000);
+                    // Start detection
+                    detectionInterval = setInterval(detectFaces, DETECTION_INTERVAL);
                     
+                    // Single unified update loop for ALL timers
+                    mainUpdateInterval = setInterval(() => {
+                        updateTimer();
+                        updateStats();
+                    }, 1000); // Update every second
+                    
+                    // Initial updates
                     updateTimer();
                     updateStats();
                     updateStatusUI('studying');
@@ -696,19 +703,19 @@
         }
         
         function updateTimer() {
-  if (!sessionActive || !timerEndTime) return;
-  const remaining = Math.max(0, Math.floor((timerEndTime - Date.now()) / 1000));
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
-  document.getElementById('timerText').textContent =
-    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  if (remaining === 0) {
-    endSession();
-  }
-}
-
-setInterval(updateTimer, 1000);      // Timer sync
-setInterval(updateStats, 1000);      // Stats sync
+            if (!sessionActive || !timerEndTime) return;
+            
+            const remaining = Math.max(0, Math.floor((timerEndTime - Date.now()) / 1000));
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            
+            document.getElementById('timerText').textContent =
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (remaining === 0) {
+                endSession();
+            }
+        }
         
         async function updateStats() {
             if (!sessionActive) return;
@@ -731,8 +738,7 @@ setInterval(updateStats, 1000);      // Stats sync
             
             sessionActive = false;
             clearInterval(detectionInterval);
-            clearInterval(timerInterval);
-            clearInterval(updateInterval);
+            clearInterval(mainUpdateInterval);
             
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
