@@ -663,6 +663,42 @@ async def stats_page():
         </body></html>
         """
 
+# ==================== DEBUG ROUTES ====================
+
+@app.get("/debug/files")
+async def debug_file_structure():
+    """Debug endpoint to check file structure"""
+    try:
+        cwd = os.getcwd()
+        static_exists = os.path.exists("static")
+        
+        files_info = {
+            "current_directory": cwd,
+            "static_directory_exists": static_exists,
+            "static_files": [],
+            "all_html_files": []
+        }
+        
+        if static_exists:
+            try:
+                static_files = os.listdir("static")
+                files_info["static_files"] = static_files
+                files_info["profile_html_exists"] = "profile.html" in static_files
+                files_info["index_html_exists"] = "index.html" in static_files
+            except Exception as e:
+                files_info["static_error"] = str(e)
+        
+        # Find all HTML files
+        for root, dirs, files in os.walk("."):
+            for file in files:
+                if file.endswith(".html"):
+                    files_info["all_html_files"].append(os.path.join(root, file))
+        
+        return files_info
+        
+    except Exception as e:
+        return {"error": str(e)}
+
 # ==================== SESSION ROUTES ====================
 
 @app.post("/session/start")
@@ -1028,6 +1064,20 @@ async def force_clear_session(user = Depends(get_current_user)):
         
         return {"message": "No session to clear", "success": False}
 
+@app.post("/session/sync")
+async def sync_session(user = Depends(get_current_user)):
+    """Manually trigger session sync to database"""
+    user_id = str(user["_id"])
+    
+    if user_id not in user_sessions:
+        return {"message": "No active session", "success": False}
+    
+    try:
+        save_session_to_db(user_id)
+        return {"message": "Session synced", "success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
 # ==================== SETTINGS ROUTES ====================
 
 @app.post("/settings/alerts")
@@ -1065,20 +1115,6 @@ async def get_analytics(period: str, user = Depends(get_current_user)):
         "period": period,
         "analytics": analytics
     }
-@app.post("/session/sync")
-async def sync_session(user = Depends(get_current_user)):
-    """Manually trigger session sync to database"""
-    user_id = str(user["_id"])
-    
-    if user_id not in user_sessions:
-        return {"message": "No active session", "success": False}
-    
-    try:
-        save_session_to_db(user_id)
-        return {"message": "Session synced", "success": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
-
 
 # ==================== PROFILE ROUTES ====================
 
@@ -1250,20 +1286,28 @@ async def read_root(session_token: Optional[str] = Cookie(None)):
 
 @app.get("/profile", response_class=HTMLResponse)
 async def read_profile(session_token: Optional[str] = Cookie(None)):
-    """Serve the profile page or redirect to login"""
+    """Serve the profile page with inline fallback"""
     if MAINTENANCE_MODE:
         return RedirectResponse(url="/maintenance")
     
     if not session_token or session_token not in active_sessions:
         return RedirectResponse(url="/login")
     
-    # If profile.html doesn't exist, create a simple one inline
-    try:
-        with open("static/profile.html", "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        # Return a simple inline profile page
-        return """
+    # Try to load profile.html from static folder
+    profile_path = os.path.join("static", "profile.html")
+    
+    if os.path.exists(profile_path):
+        try:
+            with open(profile_path, "r", encoding="utf-8") as f:
+                print(f"✅ Loaded profile.html from {profile_path}")
+                return f.read()
+        except Exception as e:
+            print(f"⚠️ Error reading profile.html: {e}")
+    else:
+        print(f"⚠️ profile.html not found at {profile_path}, using inline version")
+    
+    # Fallback: Return inline profile page
+    return """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1298,6 +1342,7 @@ async def read_profile(session_token: Optional[str] = Cookie(None)):
         .header h1 {
             font-size: 2.5em;
             margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
         
         .profile-card {
@@ -1324,6 +1369,9 @@ async def read_profile(session_token: Optional[str] = Cookie(None)):
             color: #667eea;
             display: block;
             margin-bottom: 5px;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         .info-row .value {
@@ -1343,23 +1391,30 @@ async def read_profile(session_token: Optional[str] = Cookie(None)):
             padding: 25px;
             border-radius: 15px;
             text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
         }
         
         .stat-card h3 {
             color: #667eea;
-            font-size: 0.9em;
+            font-size: 0.85em;
             margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         .stat-card .value {
-            font-size: 2em;
+            font-size: 2.5em;
             font-weight: bold;
             color: #2d3748;
         }
         
         .back-btn {
             display: inline-block;
-            padding: 12px 30px;
+            padding: 15px 35px;
             background: white;
             color: #667eea;
             text-decoration: none;
@@ -1367,59 +1422,70 @@ async def read_profile(session_token: Optional[str] = Cookie(None)):
             font-weight: 600;
             margin-top: 20px;
             transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
         
         .back-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
         }
         
         .loading {
             text-align: center;
             padding: 40px;
             color: #718096;
+            font-size: 1.1em;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #e53e3e;
+            font-size: 1.1em;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>👤 Profile</h1>
+            <h1>👤 Your Profile</h1>
+            <p style="font-size: 1.1em; margin-top: 5px;">View your statistics and account information</p>
         </div>
         
         <div class="profile-card">
-            <div id="loading" class="loading">Loading profile...</div>
+            <div id="loading" class="loading">Loading your profile...</div>
+            <div id="error" class="error" style="display:none;"></div>
             <div id="profileContent" style="display:none;">
                 <div class="profile-info">
                     <div class="info-row">
-                        <label>Name</label>
+                        <label>👤 Name</label>
                         <div class="value" id="userName">-</div>
                     </div>
                     <div class="info-row">
-                        <label>Email</label>
+                        <label>📧 Email</label>
                         <div class="value" id="userEmail">-</div>
                     </div>
                     <div class="info-row">
-                        <label>Member Since</label>
+                        <label>📅 Member Since</label>
                         <div class="value" id="joinedDate">-</div>
                     </div>
                 </div>
                 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <h3>Total Sessions</h3>
+                        <h3>📚 Total Sessions</h3>
                         <div class="value" id="totalSessions">0</div>
                     </div>
                     <div class="stat-card">
-                        <h3>Study Hours</h3>
+                        <h3>⏰ Study Hours</h3>
                         <div class="value" id="totalHours">0</div>
                     </div>
                     <div class="stat-card">
-                        <h3>Avg Focus Score</h3>
+                        <h3>🎯 Avg Focus</h3>
                         <div class="value" id="avgFocus">0%</div>
                     </div>
                     <div class="stat-card">
-                        <h3>Current Streak</h3>
+                        <h3>🔥 Streak</h3>
                         <div class="value" id="streak">0</div>
                     </div>
                 </div>
@@ -1433,48 +1499,64 @@ async def read_profile(session_token: Optional[str] = Cookie(None)):
         async function loadProfile() {
             try {
                 const response = await fetch('/user/profile');
+                
                 if (!response.ok) {
-                    window.location.href = '/login';
-                    return;
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
                 const data = await response.json();
                 
-                document.getElementById('userName').textContent = data.user_name;
-                document.getElementById('userEmail').textContent = data.email;
+                // Update profile information
+                document.getElementById('userName').textContent = data.user_name || 'Unknown';
+                document.getElementById('userEmail').textContent = data.email || 'Unknown';
                 
-                const joinedDate = new Date(data.joined_date);
-                document.getElementById('joinedDate').textContent = joinedDate.toLocaleDateString();
-                
-                if (data.stats) {
-                    document.getElementById('totalSessions').textContent = data.stats.total_sessions;
-                    document.getElementById('totalHours').textContent = data.stats.total_study_hours;
-                    document.getElementById('avgFocus').textContent = data.stats.average_focus_score + '%';
-                    document.getElementById('streak').textContent = data.stats.current_streak;
+                // Format joined date
+                if (data.joined_date) {
+                    const joinedDate = new Date(data.joined_date);
+                    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                    document.getElementById('joinedDate').textContent = joinedDate.toLocaleDateString('en-US', options);
+                } else {
+                    document.getElementById('joinedDate').textContent = 'Unknown';
                 }
                 
+                // Update statistics
+                if (data.stats) {
+                    document.getElementById('totalSessions').textContent = data.stats.total_sessions || 0;
+                    document.getElementById('totalHours').textContent = data.stats.total_study_hours || 0;
+                    document.getElementById('avgFocus').textContent = (data.stats.average_focus_score || 0) + '%';
+                    document.getElementById('streak').textContent = data.stats.current_streak || 0;
+                }
+                
+                // Show profile content
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('profileContent').style.display = 'block';
                 
+                console.log('✅ Profile loaded successfully');
+                
             } catch (error) {
-                console.error('Error loading profile:', error);
-                document.getElementById('loading').textContent = 'Error loading profile. Please try again.';
+                console.error('❌ Error loading profile:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 'Error loading profile: ' + error.message + '. Please try refreshing the page.';
             }
         }
         
+        // Load profile when page loads
         loadProfile();
     </script>
 </body>
 </html>
-        """
-    except Exception as e:
-        return f"<h1>Error</h1><p>{str(e)}</p><a href='/'>Back to home</a>"
-    
+    """
+
 @app.get("/version")
 async def get_version():
     """Get API version info"""
     return {
-        "version": "2.0.0",
+        "version": "2.1.0",
         "mode": "server" if IS_SERVER else "local",
         "updated": datetime.utcnow().isoformat(),
         "maintenance_mode": MAINTENANCE_MODE
