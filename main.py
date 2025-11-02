@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Cookie
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, FileResponse, Response
 import uvicorn
 from datetime import datetime, timedelta
 from bson import ObjectId
@@ -129,6 +129,49 @@ async def maintenance_page():
     </html>
     """
 
+# ==================== FAVICON ====================
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve favicon"""
+    for filename in ["favicon.ico", "favicon.png", "favicon.svg"]:
+        favicon_path = os.path.join("static", filename)
+        if os.path.exists(favicon_path):
+            return FileResponse(favicon_path)
+    return Response(status_code=204)
+
+# ==================== AUTHENTICATION PAGE ROUTES ====================
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(session_token: Optional[str] = Cookie(None)):
+    """Serve the login page"""
+    if MAINTENANCE_MODE:
+        return RedirectResponse(url="/maintenance")
+    
+    if session_token and session_token in active_sessions:
+        return RedirectResponse(url="/")
+    
+    try:
+        with open("static/login.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        return f"<h1>Error</h1><p>Login page not found: {str(e)}</p>"
+
+@app.get("/signup", response_class=HTMLResponse)
+async def signup_page(session_token: Optional[str] = Cookie(None)):
+    """Serve the signup page"""
+    if MAINTENANCE_MODE:
+        return RedirectResponse(url="/maintenance")
+    
+    if session_token and session_token in active_sessions:
+        return RedirectResponse(url="/")
+    
+    try:
+        with open("static/signup.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        return f"<h1>Error</h1><p>Signup page not found: {str(e)}</p>"
+
 # ==================== SESSION PERSISTENCE ====================
 
 def save_session_to_db(user_id: str):
@@ -143,10 +186,8 @@ def save_session_to_db(user_id: str):
         if not session_id:
             return
         
-        # Calculate current metrics
         metrics = calculate_current_metrics(session_data)
         
-        # Update session in database
         sessions_collection.update_one(
             {"_id": session_id},
             {
@@ -167,11 +208,10 @@ def save_session_to_db(user_id: str):
 def restore_session_from_db(user_id: str):
     """Restore active session from database if it exists"""
     try:
-        # Look for active session in database
         session = sessions_collection.find_one({
             "user_id": ObjectId(user_id),
             "end_time": None,
-            "last_updated": {"$gte": datetime.utcnow() - timedelta(hours=2)}  # Within last 2 hours
+            "last_updated": {"$gte": datetime.utcnow() - timedelta(hours=2)}
         })
         
         if not session:
@@ -221,7 +261,6 @@ def calculate_current_metrics(session_data):
             elif status == "distracted":
                 metrics["distracted_time"] += duration
     
-    # Calculate focus score
     total_time = metrics["studying_time"] + metrics["away_time"] + metrics["distracted_time"]
     if total_time > 0:
         metrics["focus_score"] = (metrics["studying_time"] / total_time) * 100
@@ -230,7 +269,6 @@ def calculate_current_metrics(session_data):
     
     return metrics
 
-# Auto-save sessions every 30 seconds
 def auto_save_sessions():
     """Background task to periodically save sessions"""
     while True:
@@ -239,7 +277,6 @@ def auto_save_sessions():
             for user_id in list(user_sessions.keys()):
                 save_session_to_db(user_id)
 
-# Start auto-save thread
 auto_save_thread = threading.Thread(target=auto_save_sessions, daemon=True)
 auto_save_thread.start()
 print("✅ Auto-save thread started")
@@ -272,7 +309,6 @@ async def signup(
     """Create new user account with validation"""
     check_maintenance()
     
-    # Validate name
     if len(name.strip()) < 2:
         return HTMLResponse("""
             <html><body>
@@ -283,7 +319,6 @@ async def signup(
             </body></html>
         """)
     
-    # Validate email format
     email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(email_regex, email):
         return HTMLResponse("""
@@ -295,7 +330,6 @@ async def signup(
             </body></html>
         """)
     
-    # Validate password strength
     if len(password) < 8:
         return HTMLResponse("""
             <html><body>
@@ -336,7 +370,6 @@ async def signup(
             </body></html>
         """)
     
-    # Validate password match
     if password != confirm_password:
         return HTMLResponse("""
             <html><body>
@@ -347,7 +380,6 @@ async def signup(
             </body></html>
         """)
     
-    # Check if email already exists
     from database import get_user_by_email, create_user
     existing_user = get_user_by_email(email)
     if existing_user:
@@ -360,11 +392,9 @@ async def signup(
             </body></html>
         """)
     
-    # Create user
     try:
         user = create_user(name.strip(), email.lower(), hash_password(password))
         
-        # Create session
         session_token = create_session_token()
         active_sessions[session_token] = {
             "_id": user["_id"],
@@ -374,7 +404,6 @@ async def signup(
         
         print(f"✅ New user registered: {name} ({email})")
         
-        # Redirect to dashboard
         response = RedirectResponse(url="/", status_code=302)
         response.set_cookie(key="session_token", value=session_token, httponly=True, max_age=86400*7)
         return response
@@ -390,27 +419,22 @@ async def signup(
             </body></html>
         """)
 
-
 @app.post("/login")
 async def login(email: str = Form(...), password: str = Form(...)):
     """Login user with validation"""
     check_maintenance()
     
-    # Basic validation
     if not email or not password:
         return RedirectResponse(url="/login?error=Please enter both email and password", status_code=302)
     
-    # Get user
     from database import get_user_by_email, update_last_login
     user = get_user_by_email(email.lower())
     
     if not user or user.get("password") != hash_password(password):
         return RedirectResponse(url="/login?error=Invalid email or password", status_code=302)
     
-    # Update last login
     update_last_login(user["_id"])
     
-    # Create session
     session_token = create_session_token()
     active_sessions[session_token] = {
         "_id": user["_id"],
@@ -418,7 +442,6 @@ async def login(email: str = Form(...), password: str = Form(...)):
         "name": user["name"]
     }
     
-    # Try to restore previous session
     user_id = str(user["_id"])
     restored_session = restore_session_from_db(user_id)
     if restored_session:
@@ -430,10 +453,44 @@ async def login(email: str = Form(...), password: str = Form(...)):
     response.set_cookie(key="session_token", value=session_token, httponly=True, max_age=86400*7)
     return response
 
+@app.get("/logout")
+async def logout(session_token: Optional[str] = Cookie(None)):
+    """Logout user"""
+    if session_token and session_token in active_sessions:
+        user = active_sessions[session_token]
+        user_id = str(user["_id"])
+        
+        if user_id in user_sessions:
+            save_session_to_db(user_id)
+        
+        del active_sessions[session_token]
+    
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie(key="session_token")
+    return response
+
+@app.get("/api/current-user")
+async def get_current_user_info(user = Depends(get_current_user)):
+    """Get current logged in user info"""
+    check_maintenance()
+    
+    user_data = users_collection.find_one({"_id": user["_id"]})
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "name": user_data["name"],
+        "email": user_data["email"],
+        "background_theme": user_data.get("background_theme", "gradient-purple"),
+        "profile_picture": user_data.get("profile_picture"),
+        "alert_preference": user_data.get("alert_preference", "both")
+    }
+
+# ==================== STATS ROUTES ====================
 
 @app.get("/api/stats")
 async def get_app_statistics():
-    """Get application-wide statistics (public endpoint)"""
+    """Get application-wide statistics"""
     from database import get_app_stats, get_all_users_summary
     
     try:
@@ -454,7 +511,6 @@ async def get_app_statistics():
             "error": str(e)
         }
 
-
 @app.get("/stats", response_class=HTMLResponse)
 async def stats_page():
     """Display application statistics page"""
@@ -471,6 +527,7 @@ async def stats_page():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Focus Tracker Statistics</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='85' font-size='90'>📊</text></svg>">
     <style>
         body {{
             font-family: 'Segoe UI', sans-serif;
@@ -598,40 +655,6 @@ async def stats_page():
             <a href="/">Back to home</a>
         </body></html>
         """
-    
-@app.get("/logout")
-async def logout(session_token: Optional[str] = Cookie(None)):
-    """Logout user"""
-    if session_token and session_token in active_sessions:
-        user = active_sessions[session_token]
-        user_id = str(user["_id"])
-        
-        # Save session before logout
-        if user_id in user_sessions:
-            save_session_to_db(user_id)
-        
-        del active_sessions[session_token]
-    
-    response = RedirectResponse(url="/login", status_code=302)
-    response.delete_cookie(key="session_token")
-    return response
-
-@app.get("/api/current-user")
-async def get_current_user_info(user = Depends(get_current_user)):
-    """Get current logged in user info"""
-    check_maintenance()
-    
-    user_data = users_collection.find_one({"_id": user["_id"]})
-    if not user_data:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return {
-        "name": user_data["name"],
-        "email": user_data["email"],
-        "background_theme": user_data.get("background_theme", "gradient-purple"),
-        "profile_picture": user_data.get("profile_picture"),
-        "alert_preference": user_data.get("alert_preference", "both")
-    }
 
 # ==================== SESSION ROUTES ====================
 
