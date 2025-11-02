@@ -230,7 +230,7 @@ def get_user_lifetime_stats(user_id):
         total_studying += studying_time
         total_alerts += metrics.get("total_alerts", 0)
         
-        # Track focus scores
+        # Track focus scores (only if valid)
         focus_score = metrics.get("focus_score", 0)
         if focus_score > 0:
             focus_scores.append(focus_score)
@@ -249,13 +249,31 @@ def get_user_lifetime_stats(user_id):
         date_key = session["start_time"].strftime("%Y-%m-%d")
         dates_with_sessions.add(date_key)
     
-    current_streak = 0
-    date_check = datetime.utcnow().date()
+    # Sort dates to calculate streak properly
+    sorted_dates = sorted(dates_with_sessions, reverse=True)
     
-    # Count backwards from today
-    while date_check.isoformat() in dates_with_sessions:
-        current_streak += 1
-        date_check -= timedelta(days=1)
+    current_streak = 0
+    if sorted_dates:
+        # Check if today has a session
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        yesterday = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+        
+        # Start from today or yesterday
+        if today in sorted_dates:
+            check_date = datetime.utcnow().date()
+            current_streak = 1
+        elif yesterday in sorted_dates:
+            check_date = (datetime.utcnow() - timedelta(days=1)).date()
+            current_streak = 1
+        else:
+            check_date = None
+        
+        # Count consecutive days
+        if check_date:
+            check_date -= timedelta(days=1)
+            while check_date.strftime("%Y-%m-%d") in dates_with_sessions:
+                current_streak += 1
+                check_date -= timedelta(days=1)
     
     return {
         "total_sessions": len(all_sessions),
@@ -266,18 +284,25 @@ def get_user_lifetime_stats(user_id):
         "longest_session": int(longest_session),
         "current_streak": current_streak
     }
+
 def get_analytics_for_period(user_id, period: str):
     """Get analytics for day/week/month with proper daily breakdown"""
     now = datetime.utcnow()
     
     if period == "day":
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        days_to_show = 1
     elif period == "week":
-        start_date = now - timedelta(days=7)
+        start_date = now - timedelta(days=6)  # Last 7 days including today
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        days_to_show = 7
     elif period == "month":
-        start_date = now - timedelta(days=30)
+        start_date = now - timedelta(days=29)  # Last 30 days including today
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        days_to_show = 30
     else:
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        days_to_show = 1
     
     # Get all completed sessions in the period
     sessions = list(sessions_collection.find({
@@ -294,6 +319,18 @@ def get_analytics_for_period(user_id, period: str):
     # Daily breakdown with proper structure
     daily_breakdown = {}
     
+    # Initialize all dates in the range with zeros
+    current_date = start_date
+    for i in range(days_to_show):
+        date_key = current_date.strftime("%Y-%m-%d")
+        daily_breakdown[date_key] = {
+            "studying": 0,
+            "distracted": 0,
+            "sessions": 0
+        }
+        current_date += timedelta(days=1)
+    
+    # Fill in actual data
     for session in sessions:
         # Get metrics from session
         metrics = session.get("metrics", {})
@@ -309,32 +346,10 @@ def get_analytics_for_period(user_id, period: str):
         # Add to daily breakdown
         date_key = session["start_time"].strftime("%Y-%m-%d")
         
-        if date_key not in daily_breakdown:
-            daily_breakdown[date_key] = {
-                "studying": 0,
-                "distracted": 0,
-                "sessions": 0,
-                "date": date_key
-            }
-        
-        daily_breakdown[date_key]["studying"] += studying
-        daily_breakdown[date_key]["distracted"] += (away + distracted)
-        daily_breakdown[date_key]["sessions"] += 1
-    
-    # Fill in missing dates with zeros
-    current_date = start_date.date()
-    end_date = now.date()
-    
-    while current_date <= end_date:
-        date_key = current_date.strftime("%Y-%m-%d")
-        if date_key not in daily_breakdown:
-            daily_breakdown[date_key] = {
-                "studying": 0,
-                "distracted": 0,
-                "sessions": 0,
-                "date": date_key
-            }
-        current_date += timedelta(days=1)
+        if date_key in daily_breakdown:
+            daily_breakdown[date_key]["studying"] += studying
+            daily_breakdown[date_key]["distracted"] += (away + distracted)
+            daily_breakdown[date_key]["sessions"] += 1
     
     # Calculate focus score
     total_time = total_studying + total_away + total_distracted
