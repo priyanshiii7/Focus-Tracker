@@ -200,11 +200,11 @@ def end_session(session_id, metrics: dict):
     )
 
 def get_user_lifetime_stats(user_id):
-    """Calculate comprehensive user statistics"""
+    """Calculate comprehensive user statistics with proper aggregation"""
     all_sessions = list(sessions_collection.find({
         "user_id": user_id,
         "end_time": {"$ne": None}
-    }))
+    }).sort("start_time", 1))
     
     if not all_sessions:
         return {
@@ -218,19 +218,32 @@ def get_user_lifetime_stats(user_id):
         }
     
     # Calculate totals
-    total_studying = sum(s.get("metrics", {}).get("studying_time", 0) for s in all_sessions)
-    total_alerts = sum(s.get("metrics", {}).get("total_alerts", 0) for s in all_sessions)
+    total_studying = 0
+    total_alerts = 0
+    focus_scores = []
+    longest_session = 0
     
-    # Average focus score
-    focus_scores = [s.get("metrics", {}).get("focus_score", 0) for s in all_sessions 
-                   if s.get("metrics", {}).get("focus_score", 0) > 0]
+    for session in all_sessions:
+        metrics = session.get("metrics", {})
+        
+        studying_time = metrics.get("studying_time", 0)
+        total_studying += studying_time
+        total_alerts += metrics.get("total_alerts", 0)
+        
+        # Track focus scores
+        focus_score = metrics.get("focus_score", 0)
+        if focus_score > 0:
+            focus_scores.append(focus_score)
+        
+        # Track longest session
+        if studying_time > longest_session:
+            longest_session = studying_time
+    
+    # Calculate averages
     avg_focus_score = sum(focus_scores) / len(focus_scores) if focus_scores else 0
     best_focus_score = max(focus_scores) if focus_scores else 0
     
-    # Longest session
-    longest_session = max([s.get("metrics", {}).get("studying_time", 0) for s in all_sessions], default=0)
-    
-    # Calculate streak
+    # Calculate streak (consecutive days with sessions)
     dates_with_sessions = set()
     for session in all_sessions:
         date_key = session["start_time"].strftime("%Y-%m-%d")
@@ -238,6 +251,8 @@ def get_user_lifetime_stats(user_id):
     
     current_streak = 0
     date_check = datetime.utcnow().date()
+    
+    # Count backwards from today
     while date_check.isoformat() in dates_with_sessions:
         current_streak += 1
         date_check -= timedelta(days=1)
@@ -251,9 +266,8 @@ def get_user_lifetime_stats(user_id):
         "longest_session": int(longest_session),
         "current_streak": current_streak
     }
-
 def get_analytics_for_period(user_id, period: str):
-    """Get analytics for day/week/month"""
+    """Get analytics for day/week/month with proper daily breakdown"""
     now = datetime.utcnow()
     
     if period == "day":
@@ -265,38 +279,66 @@ def get_analytics_for_period(user_id, period: str):
     else:
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
     
+    # Get all completed sessions in the period
     sessions = list(sessions_collection.find({
         "user_id": user_id,
         "start_time": {"$gte": start_date},
         "end_time": {"$ne": None}
-    }))
+    }).sort("start_time", 1))
     
-    total_studying = sum(s.get("metrics", {}).get("studying_time", 0) for s in sessions)
-    total_away = sum(s.get("metrics", {}).get("away_time", 0) for s in sessions)
-    total_distracted = sum(s.get("metrics", {}).get("distracted_time", 0) for s in sessions)
-    total_alerts = sum(s.get("metrics", {}).get("total_alerts", 0) for s in sessions)
+    total_studying = 0
+    total_away = 0
+    total_distracted = 0
+    total_alerts = 0
     
-    total_time = total_studying + total_away + total_distracted
-    focus_score = (total_studying / total_time * 100) if total_time > 0 else 0
-    
-    # Daily breakdown
+    # Daily breakdown with proper structure
     daily_breakdown = {}
+    
     for session in sessions:
+        # Get metrics from session
+        metrics = session.get("metrics", {})
+        studying = metrics.get("studying_time", 0)
+        away = metrics.get("away_time", 0)
+        distracted = metrics.get("distracted_time", 0)
+        
+        total_studying += studying
+        total_away += away
+        total_distracted += distracted
+        total_alerts += metrics.get("total_alerts", 0)
+        
+        # Add to daily breakdown
         date_key = session["start_time"].strftime("%Y-%m-%d")
         
         if date_key not in daily_breakdown:
             daily_breakdown[date_key] = {
                 "studying": 0,
                 "distracted": 0,
-                "sessions": 0
+                "sessions": 0,
+                "date": date_key
             }
         
-        daily_breakdown[date_key]["studying"] += session.get("metrics", {}).get("studying_time", 0)
-        daily_breakdown[date_key]["distracted"] += (
-            session.get("metrics", {}).get("away_time", 0) + 
-            session.get("metrics", {}).get("distracted_time", 0)
-        )
+        daily_breakdown[date_key]["studying"] += studying
+        daily_breakdown[date_key]["distracted"] += (away + distracted)
         daily_breakdown[date_key]["sessions"] += 1
+    
+    # Fill in missing dates with zeros
+    current_date = start_date.date()
+    end_date = now.date()
+    
+    while current_date <= end_date:
+        date_key = current_date.strftime("%Y-%m-%d")
+        if date_key not in daily_breakdown:
+            daily_breakdown[date_key] = {
+                "studying": 0,
+                "distracted": 0,
+                "sessions": 0,
+                "date": date_key
+            }
+        current_date += timedelta(days=1)
+    
+    # Calculate focus score
+    total_time = total_studying + total_away + total_distracted
+    focus_score = (total_studying / total_time * 100) if total_time > 0 else 0
     
     return {
         "total_studying_hours": round(total_studying / 3600, 1),
@@ -305,6 +347,54 @@ def get_analytics_for_period(user_id, period: str):
         "total_alerts": total_alerts,
         "daily_breakdown": daily_breakdown
     }
+
+def update_session_metrics(session_id, intervals):
+    """Helper function to recalculate and update session metrics"""
+    metrics = {
+        "studying_time": 0,
+        "away_time": 0,
+        "distracted_time": 0,
+        "total_alerts": 0,
+        "focus_score": 0
+    }
+    
+    now = datetime.utcnow()
+    
+    for interval in intervals:
+        if interval.get("end"):
+            end_time = datetime.fromisoformat(interval["end"])
+        else:
+            end_time = now
+        
+        start_time = datetime.fromisoformat(interval["start"])
+        duration = (end_time - start_time).total_seconds()
+        
+        status = interval.get("status", "studying")
+        if status == "studying":
+            metrics["studying_time"] += duration
+        elif status == "away":
+            metrics["away_time"] += duration
+        elif status == "distracted":
+            metrics["distracted_time"] += duration
+    
+    total_time = metrics["studying_time"] + metrics["away_time"] + metrics["distracted_time"]
+    if total_time > 0:
+        metrics["focus_score"] = (metrics["studying_time"] / total_time) * 100
+    else:
+        metrics["focus_score"] = 100
+    
+    # Update in database
+    sessions_collection.update_one(
+        {"_id": session_id},
+        {
+            "$set": {
+                "metrics": metrics,
+                "last_updated": datetime.utcnow()
+            }
+        }
+    )
+    
+    return metrics
 
 def get_all_users_summary():
     """Get summary of all users (admin function)"""

@@ -1,519 +1,785 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign Up | Focus Tracker</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .signup-container {
-      background: white;
-      padding: 45px;
-      border-radius: 16px;
-      width: 100%;
-      max-width: 420px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      animation: slideUp 0.5s ease;
-    }
-
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .logo {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .logo h1 {
-      color: #2d3748;
-      font-size: 2.2em;
-      margin-bottom: 5px;
-    }
-
-    .logo p {
-      color: #718096;
-      font-size: 0.95em;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    .form-group label {
-      display: block;
-      color: #2d3748;
-      font-weight: 600;
-      margin-bottom: 8px;
-      font-size: 0.9em;
-    }
-
-    .form-group input {
-      width: 100%;
-      padding: 14px;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
-      font-size: 15px;
-      transition: all 0.3s;
-      outline: none;
-    }
-
-    .form-group input:focus {
-      border-color: #00b4d8;
-      box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1);
-    }
-
-    .form-group input.error {
-      border-color: #f56565;
-    }
-
-    .form-group input.success {
-      border-color: #48bb78;
-    }
-
-    .error-message {
-      color: #f56565;
-      font-size: 0.85em;
-      margin-top: 5px;
-      display: none;
-    }
-
-    .error-message.show {
-      display: block;
-    }
-
-    .password-strength {
-      margin-top: 8px;
-      display: none;
-    }
-
-    .password-strength.show {
-      display: block;
-    }
-
-    .strength-bar {
-      height: 4px;
-      background: #e2e8f0;
-      border-radius: 2px;
-      overflow: hidden;
-      margin-bottom: 5px;
-    }
-
-    .strength-bar-fill {
-      height: 100%;
-      width: 0%;
-      transition: all 0.3s;
-      border-radius: 2px;
-    }
-
-    .strength-bar-fill.weak {
-      width: 33%;
-      background: #f56565;
-    }
-
-    .strength-bar-fill.medium {
-      width: 66%;
-      background: #ed8936;
-    }
-
-    .strength-bar-fill.strong {
-      width: 100%;
-      background: #48bb78;
-    }
-
-    .strength-text {
-      font-size: 0.8em;
-      color: #718096;
-    }
-
-    .submit-btn {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, #00b4d8, #0096c7);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s;
-      margin-top: 10px;
-    }
-
-    .submit-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(0, 180, 216, 0.4);
-    }
-
-    .submit-btn:active {
-      transform: translateY(0);
-    }
-
-    .submit-btn:disabled {
-      background: #cbd5e0;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .divider {
-      text-align: center;
-      margin: 25px 0;
-      color: #a0aec0;
-      font-size: 0.9em;
-    }
-
-    .login-link {
-      text-align: center;
-      margin-top: 20px;
-      color: #718096;
-      font-size: 0.95em;
-    }
-
-    .login-link a {
-      color: #00b4d8;
-      text-decoration: none;
-      font-weight: 600;
-      transition: color 0.3s;
-    }
-
-    .login-link a:hover {
-      color: #0096c7;
-      text-decoration: underline;
-    }
-
-    .requirements {
-      background: #f7fafc;
-      padding: 15px;
-      border-radius: 8px;
-      margin-top: 10px;
-      font-size: 0.85em;
-      display: none;
-    }
-
-    .requirements.show {
-      display: block;
-    }
-
-    .requirements h4 {
-      color: #2d3748;
-      margin-bottom: 8px;
-      font-size: 0.9em;
-    }
-
-    .requirements ul {
-      list-style: none;
-      padding: 0;
-    }
-
-    .requirements li {
-      color: #718096;
-      margin: 5px 0;
-      padding-left: 20px;
-      position: relative;
-    }
-
-    .requirements li::before {
-      content: "○";
-      position: absolute;
-      left: 0;
-    }
-
-    .requirements li.met {
-      color: #48bb78;
-    }
-
-    .requirements li.met::before {
-      content: "✓";
-      color: #48bb78;
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Tracker - Study Session Monitor</title>
+    
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.3s ease;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .header {
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .status-banner {
+            background: white;
+            padding: 20px 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .status-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-studying {
+            background: #48bb78;
+        }
+        
+        .status-away {
+            background: #ed8936;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .status-text {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .alert-banner {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #e53e3e;
+            color: white;
+            padding: 80px 100px;
+            border-radius: 25px;
+            font-size: 4em;
+            font-weight: bold;
+            z-index: 2000;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+            animation: shake 0.5s infinite;
+            text-align: center;
+            border: 5px solid #fff;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translate(-50%, -50%) rotate(0deg); }
+            25% { transform: translate(-50%, -50%) rotate(-2deg); }
+            75% { transform: translate(-50%, -50%) rotate(2deg); }
+        }
+        
+        .controls {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 25px;
+        }
+        
+        .controls-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .timer-setup {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        /* Updated timer display with live stats */
+        .timer-display {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 30px 60px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 25px;
+            display: none;
+        }
+        
+        .timer-display.active {
+            display: block;
+        }
+        
+        .timer-main {
+            font-size: 4em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .timer-label {
+            font-size: 1em;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        
+        .live-stats {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            padding-top: 20px;
+            border-top: 2px solid rgba(255,255,255,0.3);
+        }
+        
+        .live-stat {
+            text-align: center;
+        }
+        
+        .live-stat-value {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        .live-stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 35px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 1em;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            letter-spacing: 1.5px;
+        }
+        
+        .stat-card .value {
+            font-size: 3em;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .label {
+            color: #718096;
+            font-size: 0.9em;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .profile-button {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .profile-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        
+        .logout-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 50px;
+            border: 2px solid white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+        
+        .logout-btn:hover {
+            background: white;
+            color: #667eea;
+        }
+        
+        input[type="number"] {
+            padding: 12px 20px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 16px;
+            width: 100px;
+        }
+        
+        label {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .no-session {
+            background: white;
+            padding: 60px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .no-session h2 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 15px;
+        }
+        
+        .no-session p {
+            color: #718096;
+            font-size: 1.2em;
+        }
+        
+        #webcam {
+            display: none;
+        }
+    </style>
 </head>
 <body>
-  <div class="signup-container">
-    <div class="logo">
-      <h1>📚 Focus Tracker</h1>
-      <p>Create your account to start studying smarter</p>
+    <div id="alertBanner" class="alert-banner">
+        ⚠️ GET BACK TO WORK! ⚠️<br>
+        <span style="font-size: 0.5em;">Focus on your studies NOW!</span>
     </div>
-
-    <form id="signupForm" action="/signup" method="post" novalidate>
-      <div class="form-group">
-        <label for="name">Full Name</label>
-        <input 
-          type="text" 
-          id="name" 
-          name="name" 
-          placeholder="Enter your full name" 
-          required 
-          minlength="2"
-          maxlength="50"
-        />
-        <div class="error-message" id="nameError">Name must be at least 2 characters</div>
-      </div>
-
-      <div class="form-group">
-        <label for="email">Email Address</label>
-        <input 
-          type="email" 
-          id="email" 
-          name="email" 
-          placeholder="you@example.com" 
-          required 
-        />
-        <div class="error-message" id="emailError">Please enter a valid email address</div>
-      </div>
-
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input 
-          type="password" 
-          id="password" 
-          name="password" 
-          placeholder="Create a strong password" 
-          required 
-          minlength="8"
-        />
-        <div class="password-strength" id="passwordStrength">
-          <div class="strength-bar">
-            <div class="strength-bar-fill" id="strengthBar"></div>
-          </div>
-          <div class="strength-text" id="strengthText"></div>
+    
+    <div class="container">
+        <div class="top-bar">
+            <div class="header">
+                <h1>📚 Focus Tracker</h1>
+                <p style="font-size: 1.2em;">AI-powered study session monitor</p>
+            </div>
+            <div style="display: flex; gap: 15px;">
+                <a href="/profile" class="profile-button" id="profileBtn">
+                    <span id="profileName">User</span>
+                </a>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
         </div>
-        <div class="error-message" id="passwordError">Password must be at least 8 characters</div>
+
+        <div id="statusBanner" class="status-banner hidden">
+            <div id="statusIndicator" class="status-indicator status-studying"></div>
+            <div id="statusText" class="status-text">🟢 Studying</div>
+        </div>
+
+        <video id="webcam" autoplay playsinline muted></video>
+
+        <!-- Updated timer with live stats -->
+        <div id="timerDisplay" class="timer-display">
+            <div class="timer-main" id="timerText">00:00</div>
+            <div class="timer-label">Session Time</div>
+            
+            <div class="live-stats">
+                <div class="live-stat">
+                    <div class="live-stat-value" id="liveStudyTime">0:00</div>
+                    <div class="live-stat-label">📖 Studying</div>
+                </div>
+                <div class="live-stat">
+                    <div class="live-stat-value" id="liveAwayTime">0:00</div>
+                    <div class="live-stat-label">⏸️ Away</div>
+                </div>
+            </div>
+        </div>
         
-        <div class="requirements" id="passwordRequirements">
-          <h4>Password must contain:</h4>
-          <ul>
-            <li id="req-length">At least 8 characters</li>
-            <li id="req-uppercase">One uppercase letter</li>
-            <li id="req-lowercase">One lowercase letter</li>
-            <li id="req-number">One number</li>
-          </ul>
+        <div class="controls">
+            <div class="controls-row">
+                <div class="timer-setup" id="timerSetup">
+                    <label>⏱️ Timer:</label>
+                    <input type="number" id="timerMinutes" min="1" max="180" value="25">
+                    <span>minutes</span>
+                </div>
+                <button class="btn btn-primary" id="startBtn" onclick="startSession()">Start Session</button>
+                <button class="btn btn-danger hidden" id="endBtn" onclick="endSession()">End Session</button>
+            </div>
         </div>
-      </div>
-
-      <div class="form-group">
-        <label for="confirmPassword">Confirm Password</label>
-        <input 
-          type="password" 
-          id="confirmPassword" 
-          name="confirm_password" 
-          placeholder="Re-enter your password" 
-          required 
-        />
-        <div class="error-message" id="confirmPasswordError">Passwords do not match</div>
-      </div>
-
-      <button type="submit" class="submit-btn" id="submitBtn">Create Account</button>
-    </form>
-
-    <div class="login-link">
-      Already have an account? <a href="/login">Sign In</a>
+        
+        <div id="dashboard" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>📖 Study Time</h3>
+                    <div class="value" id="studyTime">0:00</div>
+                    <div class="label">time focused</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>🎯 Focus Score</h3>
+                    <div class="value" id="focusScore">100%</div>
+                    <div class="label">productivity rate</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>⏸️ Time Away</h3>
+                    <div class="value" id="awayTime">0:00</div>
+                    <div class="label">distracted time</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>⚠️ Alerts</h3>
+                    <div class="value" id="alertsCount">0</div>
+                    <div class="label">warnings issued</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="noSession" class="no-session">
+            <h2>No Active Session</h2>
+            <p>Set a timer and start tracking your focus!</p>
+        </div>
     </div>
-  </div>
-
-  <script>
-    const form = document.getElementById('signupForm');
-    const nameInput = document.getElementById('name');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    const confirmPasswordInput = document.getElementById('confirmPassword');
-    const submitBtn = document.getElementById('submitBtn');
-
-    // Validation states
-    let validations = {
-      name: false,
-      email: false,
-      password: false,
-      confirmPassword: false
-    };
-
-    // Name validation
-    nameInput.addEventListener('input', () => {
-      const value = nameInput.value.trim();
-      const error = document.getElementById('nameError');
-      
-      if (value.length < 2) {
-        nameInput.classList.remove('success');
-        nameInput.classList.add('error');
-        error.classList.add('show');
-        validations.name = false;
-      } else {
-        nameInput.classList.remove('error');
-        nameInput.classList.add('success');
-        error.classList.remove('show');
-        validations.name = true;
-      }
-      updateSubmitButton();
-    });
-
-    // Email validation
-    emailInput.addEventListener('input', () => {
-      const value = emailInput.value.trim();
-      const error = document.getElementById('emailError');
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      
-      if (!emailRegex.test(value)) {
-        emailInput.classList.remove('success');
-        emailInput.classList.add('error');
-        error.classList.add('show');
-        validations.email = false;
-      } else {
-        emailInput.classList.remove('error');
-        emailInput.classList.add('success');
-        error.classList.remove('show');
-        validations.email = true;
-      }
-      updateSubmitButton();
-    });
-
-    // Password validation and strength meter
-    passwordInput.addEventListener('focus', () => {
-      document.getElementById('passwordRequirements').classList.add('show');
-    });
-
-    passwordInput.addEventListener('input', () => {
-      const value = passwordInput.value;
-      const error = document.getElementById('passwordError');
-      const strengthBar = document.getElementById('strengthBar');
-      const strengthText = document.getElementById('strengthText');
-      const strengthContainer = document.getElementById('passwordStrength');
-
-      // Show strength meter
-      strengthContainer.classList.add('show');
-
-      // Check requirements
-      const hasLength = value.length >= 8;
-      const hasUpper = /[A-Z]/.test(value);
-      const hasLower = /[a-z]/.test(value);
-      const hasNumber = /[0-9]/.test(value);
-
-      // Update requirement checklist
-      document.getElementById('req-length').classList.toggle('met', hasLength);
-      document.getElementById('req-uppercase').classList.toggle('met', hasUpper);
-      document.getElementById('req-lowercase').classList.toggle('met', hasLower);
-      document.getElementById('req-number').classList.toggle('met', hasNumber);
-
-      // Calculate strength
-      let strength = 0;
-      if (hasLength) strength++;
-      if (hasUpper) strength++;
-      if (hasLower) strength++;
-      if (hasNumber) strength++;
-
-      // Update strength bar
-      strengthBar.className = 'strength-bar-fill';
-      if (strength <= 1) {
-        strengthBar.classList.add('weak');
-        strengthText.textContent = 'Weak password';
-        strengthText.style.color = '#f56565';
-      } else if (strength <= 3) {
-        strengthBar.classList.add('medium');
-        strengthText.textContent = 'Medium password';
-        strengthText.style.color = '#ed8936';
-      } else {
-        strengthBar.classList.add('strong');
-        strengthText.textContent = 'Strong password';
-        strengthText.style.color = '#48bb78';
-      }
-
-      // Validation
-      const isValid = hasLength && hasUpper && hasLower && hasNumber;
-      if (!isValid && value.length > 0) {
-        passwordInput.classList.add('error');
-        passwordInput.classList.remove('success');
-        error.textContent = 'Password does not meet requirements';
-        error.classList.add('show');
-        validations.password = false;
-      } else if (isValid) {
-        passwordInput.classList.remove('error');
-        passwordInput.classList.add('success');
-        error.classList.remove('show');
-        validations.password = true;
-      } else {
-        passwordInput.classList.remove('error', 'success');
-        error.classList.remove('show');
-        validations.password = false;
-      }
-
-      // Revalidate confirm password if it has a value
-      if (confirmPasswordInput.value) {
-        validateConfirmPassword();
-      }
-
-      updateSubmitButton();
-    });
-
-    // Confirm password validation
-    function validateConfirmPassword() {
-      const error = document.getElementById('confirmPasswordError');
-      
-      if (confirmPasswordInput.value !== passwordInput.value) {
-        confirmPasswordInput.classList.add('error');
-        confirmPasswordInput.classList.remove('success');
-        error.classList.add('show');
-        validations.confirmPassword = false;
-      } else if (confirmPasswordInput.value.length > 0) {
-        confirmPasswordInput.classList.remove('error');
-        confirmPasswordInput.classList.add('success');
-        error.classList.remove('show');
-        validations.confirmPassword = true;
-      } else {
-        confirmPasswordInput.classList.remove('error', 'success');
-        error.classList.remove('show');
-        validations.confirmPassword = false;
-      }
-      updateSubmitButton();
-    }
-
-    confirmPasswordInput.addEventListener('input', validateConfirmPassword);
-
-    // Update submit button state
-    function updateSubmitButton() {
-      const allValid = Object.values(validations).every(v => v === true);
-      submitBtn.disabled = !allValid;
-    }
-
-    // Form submission
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-
-      // Final validation
-      if (!Object.values(validations).every(v => v === true)) {
-        alert('Please fill all fields correctly');
-        return;
-      }
-
-      // Submit form
-      submitBtn.textContent = 'Creating Account...';
-      submitBtn.disabled = true;
-      form.submit();
-    });
-
-    // Initial button state
-    updateSubmitButton();
-  </script>
+    
+    <script>
+        let faceDetectionModel = null;
+        let videoStream = null;
+        let detectionInterval = null;
+        let sessionActive = false;
+        let currentStatus = "studying";
+        let framesWithoutFace = 0;
+        let awayStartTime = null;
+        let awayWarnings = 0;
+        let lastAlertTime = 0;
+        let updateInterval = null;
+        let sessionStartTime = null;
+        
+        // Synced timers
+        let localStudyTime = 0;
+        let localAwayTime = 0;
+        let lastStatusChangeTime = null;
+        
+        // Web Speech API for voice alerts
+        const synth = window.speechSynthesis;
+        let voiceEnabled = true;
+        
+        const warningMessages = [
+            "Hey! Stop looking away and get back to studying!",
+            "Focus! Your study session is running!",
+            "Get back to work right now!",
+            "Stop wasting time! Focus on your studies!",
+            "You need to concentrate! Back to your books!",
+            "Come on! Your timer is still running. Get back to work!"
+        ];
+        
+        let currentMessageIndex = 0;
+        
+        async function loadFaceDetection() {
+            try {
+                console.log('Loading face detection model...');
+                faceDetectionModel = await blazeface.load();
+                console.log('✅ Face detection model loaded');
+            } catch (error) {
+                console.error('Failed to load face detection:', error);
+                alert('Failed to load face detection model. Please refresh the page.');
+            }
+        }
+        
+        async function startWebcam() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                document.getElementById('webcam').srcObject = videoStream;
+                console.log('✅ Webcam started');
+                return true;
+            } catch (error) {
+                console.error('Camera access denied:', error);
+                alert('Camera access is required for face detection. Please allow camera permissions.');
+                return false;
+            }
+        }
+        
+        async function detectFaces() {
+            if (!faceDetectionModel || !videoStream) return;
+            
+            const video = document.getElementById('webcam');
+            const predictions = await faceDetectionModel.estimateFaces(video, false);
+            
+            const hasFace = predictions && predictions.length > 0;
+            
+            if (!hasFace) {
+                framesWithoutFace++;
+                if (framesWithoutFace >= 10) {
+                    if (currentStatus !== 'away') {
+                        switchStatus('away');
+                    }
+                    
+                    if (awayStartTime) {
+                        const timeAway = (Date.now() - awayStartTime) / 1000;
+                        const now = Date.now();
+                        
+                        if (timeAway >= 30 && (now - lastAlertTime) >= 30000) {
+                            awayWarnings++;
+                            triggerAlert();
+                            lastAlertTime = now;
+                            
+                            if (awayWarnings >= 3) {
+                                alert('Too much time away! Session will end.');
+                                endSession();
+                            }
+                        }
+                    }
+                }
+            } else {
+                if (framesWithoutFace >= 10) {
+                    console.log('✅ Face detected - back to studying');
+                }
+                framesWithoutFace = 0;
+                awayStartTime = null;
+                awayWarnings = 0;
+                
+                if (currentStatus !== 'studying') {
+                    switchStatus('studying');
+                }
+            }
+        }
+        
+        function switchStatus(newStatus) {
+            const now = Date.now();
+            
+            // Update local counters based on previous status
+            if (lastStatusChangeTime) {
+                const elapsed = (now - lastStatusChangeTime) / 1000;
+                if (currentStatus === 'studying') {
+                    localStudyTime += elapsed;
+                } else if (currentStatus === 'away') {
+                    localAwayTime += elapsed;
+                }
+            }
+            
+            currentStatus = newStatus;
+            lastStatusChangeTime = now;
+            
+            if (newStatus === 'away') {
+                awayStartTime = now;
+            }
+            
+            updateStatusUI(newStatus);
+            sendStatusToServer(newStatus);
+            updateLiveStats();
+        }
+        
+        function updateStatusUI(status) {
+            const banner = document.getElementById('statusBanner');
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+            
+            banner.classList.remove('hidden');
+            
+            if (status === 'studying') {
+                text.textContent = '🟢 Studying';
+                indicator.className = 'status-indicator status-studying';
+            } else {
+                text.textContent = '🟠 Away';
+                indicator.className = 'status-indicator status-away';
+            }
+        }
+        
+        function speakAlert(message) {
+            if (!voiceEnabled || !synth) return;
+            
+            // Cancel any ongoing speech
+            synth.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 1.1;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            
+            // Try to use a more stern voice if available
+            const voices = synth.getVoices();
+            const preferredVoice = voices.find(v => v.name.includes('Male') || v.name.includes('Google')) || voices[0];
+            if (preferredVoice) {
+                utterance.voice = preferredVoice;
+            }
+            
+            synth.speak(utterance);
+            console.log('🔊 Voice alert triggered:', message);
+        }
+        
+        function triggerAlert() {
+            const message = warningMessages[currentMessageIndex];
+            currentMessageIndex = (currentMessageIndex + 1) % warningMessages.length;
+            
+            // Visual alert
+            const banner = document.getElementById('alertBanner');
+            banner.innerHTML = `⚠️ ${message.toUpperCase()} ⚠️`;
+            banner.style.display = 'block';
+            
+            setTimeout(() => {
+                banner.style.display = 'none';
+            }, 5000);
+            
+            // Voice alert
+            speakAlert(message);
+            
+            sendStatusToServer('away', {
+                message: message,
+                timestamp: new Date().toISOString(),
+                type: 'both',
+                alert_level: 'warning'
+            });
+        }
+        
+        async function sendStatusToServer(status, alert = null) {
+            try {
+                await fetch('/session/status-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status, alert })
+                });
+            } catch (error) {
+                console.error('Failed to send status:', error);
+            }
+        }
+        
+        function updateLiveStats() {
+            // Update current session time counters
+            const now = Date.now();
+            if (lastStatusChangeTime) {
+                const elapsed = (now - lastStatusChangeTime) / 1000;
+                if (currentStatus === 'studying') {
+                    document.getElementById('liveStudyTime').textContent = formatTime(localStudyTime + elapsed);
+                    document.getElementById('liveAwayTime').textContent = formatTime(localAwayTime);
+                } else {
+                    document.getElementById('liveStudyTime').textContent = formatTime(localStudyTime);
+                    document.getElementById('liveAwayTime').textContent = formatTime(localAwayTime + elapsed);
+                }
+            }
+        }
+        
+        async function startSession() {
+            const minutes = parseInt(document.getElementById('timerMinutes').value);
+            
+            if (!minutes || minutes < 1) {
+                alert('Please set a valid timer duration');
+                return;
+            }
+            
+            // Initialize voice if not already done
+            if (synth && synth.getVoices().length === 0) {
+                synth.addEventListener('voiceschanged', () => {
+                    console.log('✅ Voices loaded');
+                });
+            }
+            
+            const webcamStarted = await startWebcam();
+            if (!webcamStarted) return;
+            
+            try {
+                const response = await fetch('/session/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ timer_duration: minutes })
+                });
+                
+                if (response.ok) {
+                    sessionActive = true;
+                    sessionStartTime = Date.now();
+                    localStudyTime = 0;
+                    localAwayTime = 0;
+                    lastStatusChangeTime = Date.now();
+                    currentStatus = 'studying';
+                    
+                    document.getElementById('startBtn').classList.add('hidden');
+                    document.getElementById('endBtn').classList.remove('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    document.getElementById('noSession').classList.add('hidden');
+                    document.getElementById('timerSetup').style.display = 'none';
+                    document.getElementById('timerDisplay').classList.add('active');
+                    document.getElementById('statusBanner').classList.remove('hidden');
+                    
+                    detectionInterval = setInterval(detectFaces, 500);
+                    updateInterval = setInterval(() => {
+                        updateSessionTimer();
+                        updateLiveStats();
+                        updateStats();
+                    }, 1000);
+                    
+                    updateStatusUI('studying');
+                    console.log('✅ Session started');
+                }
+            } catch (error) {
+                console.error('Failed to start session:', error);
+                alert('Failed to start session!');
+            }
+        }
+        
+        function updateSessionTimer() {
+            if (!sessionActive || !sessionStartTime) return;
+            
+            const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            
+            document.getElementById('timerText').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        async function updateStats() {
+            if (!sessionActive) return;
+            
+            try {
+                const response = await fetch('/session/current');
+                const data = await response.json();
+                
+                document.getElementById('studyTime').textContent = formatTime(data.metrics.studying_time);
+                document.getElementById('focusScore').textContent = Math.round(data.metrics.focus_score) + '%';
+                document.getElementById('awayTime').textContent = formatTime(data.metrics.away_time);
+                document.getElementById('alertsCount').textContent = data.metrics.total_alerts;
+            } catch (error) {
+                console.error('Failed to update stats:', error);
+            }
+        }
+        
+        async function endSession() {
+            if (!sessionActive) return;
+            
+            sessionActive = false;
+            clearInterval(detectionInterval);
+            clearInterval(updateInterval);
+            
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            
+            // Cancel any ongoing speech
+            if (synth) {
+                synth.cancel();
+            }
+            
+            try {
+                const response = await fetch('/session/end', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                alert(`Session ended!\n\nStudy time: ${formatTime(data.final_stats.studying_time)}\nFocus score: ${Math.round(data.final_stats.focus_score)}%`);
+                
+                document.getElementById('startBtn').classList.remove('hidden');
+                document.getElementById('endBtn').classList.add('hidden');
+                document.getElementById('dashboard').classList.add('hidden');
+                document.getElementById('noSession').classList.remove('hidden');
+                document.getElementById('timerSetup').style.display = 'flex';
+                document.getElementById('timerDisplay').classList.remove('active');
+                document.getElementById('statusBanner').classList.add('hidden');
+            } catch (error) {
+                console.error('Failed to end session:', error);
+            }
+        }
+        
+        function formatTime(seconds) {
+            if (!seconds) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        async function loadUser() {
+            try {
+                const response = await fetch('/api/current-user');
+                const user = await response.json();
+                document.getElementById('profileName').textContent = user.name;
+            } catch (error) {
+                window.location.href = '/login';
+            }
+        }
+        
+        // Initialize
+        loadUser();
+        loadFaceDetection();
+    </script>
 </body>
 </html>

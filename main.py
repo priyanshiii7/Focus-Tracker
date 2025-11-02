@@ -238,7 +238,7 @@ def restore_session_from_db(user_id: str):
         return None
 
 def calculate_current_metrics(session_data):
-    """Calculate metrics from intervals"""
+    """Calculate metrics from intervals with ongoing interval support"""
     metrics = {
         "studying_time": 0,
         "distracted_time": 0,
@@ -247,19 +247,25 @@ def calculate_current_metrics(session_data):
         "focus_score": 0
     }
     
+    now = datetime.utcnow()
+    
     for interval in session_data.get("intervals", []):
+        # Use current time for ongoing intervals
         if interval.get("end"):
-            start = datetime.fromisoformat(interval["start"])
-            end = datetime.fromisoformat(interval["end"])
-            duration = (end - start).total_seconds()
-            
-            status = interval.get("status", "studying")
-            if status == "studying":
-                metrics["studying_time"] += duration
-            elif status == "away":
-                metrics["away_time"] += duration
-            elif status == "distracted":
-                metrics["distracted_time"] += duration
+            end_time = datetime.fromisoformat(interval["end"])
+        else:
+            end_time = now
+        
+        start_time = datetime.fromisoformat(interval["start"])
+        duration = (end_time - start_time).total_seconds()
+        
+        status = interval.get("status", "studying")
+        if status == "studying":
+            metrics["studying_time"] += duration
+        elif status == "away":
+            metrics["away_time"] += duration
+        elif status == "distracted":
+            metrics["distracted_time"] += duration
     
     total_time = metrics["studying_time"] + metrics["away_time"] + metrics["distracted_time"]
     if total_time > 0:
@@ -268,6 +274,7 @@ def calculate_current_metrics(session_data):
         metrics["focus_score"] = 100
     
     return metrics
+
 
 def auto_save_sessions():
     """Background task to periodically save sessions"""
@@ -824,6 +831,7 @@ async def browser_status_update(
     
     with session_lock:
         session_data = user_sessions[user_id]
+        now = datetime.utcnow()
         
         # Handle alert
         if alert:
@@ -831,18 +839,30 @@ async def browser_status_update(
             session_data["metrics"]["total_alerts"] += 1
             session_data["recent_alerts"] = session_data["recent_alerts"][-10:]
         
-        # Update intervals
-        now = datetime.utcnow()
-        if session_data["intervals"] and session_data["intervals"][-1]["status"] != status:
-            # Close previous interval
-            session_data["intervals"][-1]["end"] = now.isoformat()
+        # Check if status actually changed
+        current_intervals = session_data["intervals"]
+        if current_intervals and current_intervals[-1]["status"] != status:
+            # Close previous interval with exact timestamp
+            current_intervals[-1]["end"] = now.isoformat()
+            
+            # Calculate duration and update metrics
+            start_time = datetime.fromisoformat(current_intervals[-1]["start"])
+            duration = (now - start_time).total_seconds()
+            
+            prev_status = current_intervals[-1]["status"]
+            if prev_status == "studying":
+                session_data["metrics"]["studying_time"] = session_data["metrics"].get("studying_time", 0) + duration
+            elif prev_status == "away":
+                session_data["metrics"]["away_time"] = session_data["metrics"].get("away_time", 0) + duration
             
             # Start new interval
-            session_data["intervals"].append({
+            current_intervals.append({
                 "start": now.isoformat(),
                 "end": None,
                 "status": status
             })
+            
+            print(f"🔄 Status changed: {prev_status} → {status} (duration: {duration:.1f}s)")
     
     return {"status": "updated"}
 
@@ -924,7 +944,7 @@ async def end_session_route(user = Depends(get_current_user)):
 
 @app.get("/session/current")
 async def get_current_session_stats(user = Depends(get_current_user)):
-    """Get current session statistics"""
+    """Get current session statistics with real-time accuracy"""
     user_id = str(user["_id"])
     
     if user_id not in user_sessions:
@@ -932,15 +952,46 @@ async def get_current_session_stats(user = Depends(get_current_user)):
     
     session_data = user_sessions[user_id]
     
-    # Calculate metrics
-    metrics = calculate_current_metrics(session_data)
+    # Calculate metrics including the current ongoing interval
+    metrics = {
+        "studying_time": 0,
+        "distracted_time": 0,
+        "away_time": 0,
+        "total_alerts": len(session_data.get("recent_alerts", [])),
+        "focus_score": 0
+    }
     
-    # Get current status
-    if not IS_SERVER and session_data.get("cv_processor"):
-        current_status = session_data["cv_processor"].get_current_status()
+    now = datetime.utcnow()
+    
+    for interval in session_data.get("intervals", []):
+        # Determine end time (use current time if interval is ongoing)
+        if interval.get("end"):
+            end_time = datetime.fromisoformat(interval["end"])
+        else:
+            end_time = now
+        
+        start_time = datetime.fromisoformat(interval["start"])
+        duration = (end_time - start_time).total_seconds()
+        
+        status = interval.get("status", "studying")
+        if status == "studying":
+            metrics["studying_time"] += duration
+        elif status == "away":
+            metrics["away_time"] += duration
+        elif status == "distracted":
+            metrics["distracted_time"] += duration
+    
+    # Calculate focus score
+    total_time = metrics["studying_time"] + metrics["away_time"] + metrics["distracted_time"]
+    if total_time > 0:
+        metrics["focus_score"] = (metrics["studying_time"] / total_time) * 100
     else:
-        # For browser mode, get status from last interval
-        current_status = session_data["intervals"][-1]["status"] if session_data["intervals"] else "studying"
+        metrics["focus_score"] = 100
+    
+    # Get current status from the last interval
+    current_status = "studying"
+    if session_data["intervals"]:
+        current_status = session_data["intervals"][-1]["status"]
     
     return {
         "session_id": str(session_data["session_id"]),
@@ -1001,30 +1052,62 @@ async def update_alert_settings(settings: dict, user = Depends(get_current_user)
 
 @app.get("/analytics/{period}")
 async def get_analytics(period: str, user = Depends(get_current_user)):
-    """Get analytics for day/week/month"""
+    """Get analytics for day/week/month with proper aggregation"""
+    from database import get_analytics_for_period
+    
     analytics = get_analytics_for_period(user["_id"], period)
+    
+    # Ensure all required fields are present
+    if "daily_breakdown" not in analytics:
+        analytics["daily_breakdown"] = {}
     
     return {
         "period": period,
         "analytics": analytics
     }
+@app.post("/session/sync")
+async def sync_session(user = Depends(get_current_user)):
+    """Manually trigger session sync to database"""
+    user_id = str(user["_id"])
+    
+    if user_id not in user_sessions:
+        return {"message": "No active session", "success": False}
+    
+    try:
+        save_session_to_db(user_id)
+        return {"message": "Session synced", "success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
 
 # ==================== PROFILE ROUTES ====================
 
 @app.get("/user/profile")
 async def get_user_profile(user = Depends(get_current_user)):
-    """Get user profile and lifetime stats"""
+    """Get user profile with fresh data and cache busting"""
+    from database import get_user_lifetime_stats
+    
     user_data = users_collection.find_one({"_id": user["_id"]})
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get fresh stats
     stats = get_user_lifetime_stats(user["_id"])
+    
+    # Add cache buster to profile picture URL
+    profile_picture = user_data.get("profile_picture")
+    if profile_picture:
+        profile_picture = f"{profile_picture}?t={int(datetime.utcnow().timestamp())}"
     
     return {
         "user_name": user_data["name"],
         "email": user_data["email"],
         "joined_date": user_data.get("created_at", datetime.utcnow()).isoformat(),
         "background_theme": user_data.get("background_theme", "gradient-purple"),
-        "profile_picture": user_data.get("profile_picture"),
+        "profile_picture": profile_picture,
         "alert_preference": user_data.get("alert_preference", "both"),
-        "stats": stats
+        "stats": stats,
+        "timestamp": datetime.utcnow().isoformat()  # For cache busting
     }
 
 @app.post("/user/profile")
