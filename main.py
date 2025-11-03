@@ -418,7 +418,7 @@ async def start_session(timer_duration: int = Body(None, embed=True), user = Dep
         alert_mode = user_data.get("alert_preference", "both")
         print(f"🔔 Alert mode: {alert_mode}")
         
-        # Define status callback
+        # Define status callback with improved logic
         def status_callback(new_status, alert_data=None):
             try:
                 with session_lock:
@@ -427,25 +427,41 @@ async def start_session(timer_duration: int = Body(None, embed=True), user = Dep
                     
                     session_data = user_sessions[user_id]
                     
+                    # Handle session end
                     if new_status == "session_end":
+                        print("⚠️  Session end signal received from CV processor")
                         return
                     
+                    # Handle alerts
                     if alert_data:
                         session_data["recent_alerts"].append(alert_data)
                         session_data["metrics"]["total_alerts"] += 1
                         session_data["recent_alerts"] = session_data["recent_alerts"][-10:]
+                        print(f"🔔 Alert added: {alert_data['message']}")
                     
-                    now = datetime.utcnow()
-                    if session_data["intervals"]:
-                        session_data["intervals"][-1]["end"] = now.isoformat()
+                    # Get current interval status
+                    current_interval_status = session_data["intervals"][-1]["status"] if session_data["intervals"] else None
                     
-                    session_data["intervals"].append({
-                        "start": now.isoformat(),
-                        "end": None,
-                        "status": new_status
-                    })
+                    # Only create new interval if status actually changed
+                    if new_status != current_interval_status:
+                        now = datetime.utcnow()
+                        
+                        # Close previous interval
+                        if session_data["intervals"]:
+                            session_data["intervals"][-1]["end"] = now.isoformat()
+                            print(f"📝 Closed interval: {current_interval_status}")
+                        
+                        # Start new interval
+                        session_data["intervals"].append({
+                            "start": now.isoformat(),
+                            "end": None,
+                            "status": new_status
+                        })
+                        print(f"📝 Started new interval: {new_status}")
             except Exception as e:
                 print(f"⚠️  Error in status callback: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Start CV processor
         print("📷 Starting CV processor...")
@@ -568,7 +584,7 @@ async def get_current_session_stats(user = Depends(get_current_user)):
 
 @app.get("/video_feed")
 async def video_feed(user = Depends(get_current_user)):
-    """Stream video feed from CV processor"""
+    """Stream optimized video feed from CV processor"""
     user_id = str(user["_id"])
     
     def generate_frames():
@@ -579,40 +595,47 @@ async def video_feed(user = Depends(get_current_user)):
         if not cv_processor:
             return
         
-        frame_skip = 2
-        frame_count = 0
+        last_frame_time = 0
+        frame_interval = 0.1  # 10 FPS for streaming (smooth enough)
         
         while cv_processor and cv_processor.is_running:
-            frame_count += 1
+            current_time = time.time()
             
-            if frame_count % frame_skip != 0:
+            # Throttle frame rate
+            if current_time - last_frame_time < frame_interval:
                 time.sleep(0.01)
                 continue
             
+            last_frame_time = current_time
             frame = cv_processor.get_frame()
             
             if frame is not None:
                 try:
-                    # Resize for streaming
+                    # Resize for streaming (smaller = faster)
                     frame = cv2.resize(frame, (320, 240))
                     
-                    # Add status overlay
+                    # Add status overlay with better visibility
                     status = cv_processor.get_current_status()
-                    color = (0, 255, 0) if status == "studying" else (255, 140, 0)
-                    cv2.putText(frame, f"Status: {status.upper()}", (10, 30), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+                    color = (0, 255, 0) if status == "studying" else (0, 140, 255)
                     
-                    # Encode frame
+                    # Background for text
+                    cv2.rectangle(frame, (5, 5), (230, 40), (0, 0, 0), -1)
+                    cv2.putText(frame, f"Status: {status.upper()}", (10, 30), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                    
+                    # Encode frame with optimized quality
                     ret, buffer = cv2.imencode('.jpg', frame, 
-                        [cv2.IMWRITE_JPEG_QUALITY, 60])
+                        [cv2.IMWRITE_JPEG_QUALITY, 70,
+                         cv2.IMWRITE_JPEG_OPTIMIZE, 1])
                     
                     if ret:
                         yield (b'--frame\r\n'
                                b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-                except:
+                except Exception as e:
+                    print(f"⚠️  Frame encoding error: {e}")
                     pass
             
-            time.sleep(0.1)
+            time.sleep(0.01)
     
     return StreamingResponse(
         generate_frames(),
