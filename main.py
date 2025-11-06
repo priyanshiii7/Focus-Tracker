@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Cookie
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Cookie, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, FileResponse, Response
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse, FileResponse, Response, JSONResponse
 import uvicorn
 from datetime import datetime, timedelta
 from bson import ObjectId
@@ -56,8 +56,12 @@ def create_session_token() -> str:
 
 def get_current_user(session_token: Optional[str] = Cookie(None)):
     """Get current user from session token"""
-    if not session_token or session_token not in active_sessions:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not session_token:
+        raise HTTPException(status_code=401, detail="Not authenticated - no session token")
+    
+    if session_token not in active_sessions:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    
     return active_sessions[session_token]
 
 # ==================== SESSION PERSISTENCE ====================
@@ -176,6 +180,7 @@ async def signup(
     confirm_password: str = Form(...)
 ):
     """Create new user account with validation"""
+    # Validation
     if len(name.strip()) < 2:
         return HTMLResponse("""
             <html><body>
@@ -196,7 +201,18 @@ async def signup(
             </body></html>
         """)
     
-    existing_user = get_user_by_email(email)
+    if len(password) < 6:
+        return HTMLResponse("""
+            <html><body>
+            <script>
+                alert('Password must be at least 6 characters long');
+                window.location.href = '/signup';
+            </script>
+            </body></html>
+        """)
+    
+    # Check if user exists
+    existing_user = get_user_by_email(email.lower())
     if existing_user:
         return HTMLResponse("""
             <html><body>
@@ -208,8 +224,10 @@ async def signup(
         """)
     
     try:
+        # Create user
         user = create_user(name.strip(), email.lower(), hash_password(password))
         
+        # Create session
         session_token = create_session_token()
         active_sessions[session_token] = {
             "_id": user["_id"],
@@ -218,13 +236,23 @@ async def signup(
         }
         
         print(f"✅ New user registered: {name} ({email})")
+        print(f"   Session token created: {session_token[:16]}...")
         
+        # Redirect with cookie
         response = RedirectResponse(url="/", status_code=302)
-        response.set_cookie(key="session_token", value=session_token, httponly=True, max_age=86400*7)
+        response.set_cookie(
+            key="session_token", 
+            value=session_token, 
+            httponly=True, 
+            max_age=86400*7,
+            samesite="lax"
+        )
         return response
     
     except Exception as e:
         print(f"❌ Signup error: {e}")
+        import traceback
+        traceback.print_exc()
         return HTMLResponse("""
             <html><body>
             <script>
@@ -237,16 +265,26 @@ async def signup(
 @app.post("/login")
 async def login(email: str = Form(...), password: str = Form(...)):
     """Login user with validation"""
+    print(f"🔐 Login attempt: {email}")
+    
     if not email or not password:
-        return RedirectResponse(url="/login?error=Please enter both email and password", status_code=302)
+        print("❌ Missing email or password")
+        return RedirectResponse(url="/login?error=Please+enter+both+email+and+password", status_code=302)
     
     user = get_user_by_email(email.lower())
     
-    if not user or user.get("password") != hash_password(password):
-        return RedirectResponse(url="/login?error=Invalid email or password", status_code=302)
+    if not user:
+        print(f"❌ User not found: {email}")
+        return RedirectResponse(url="/login?error=Invalid+email+or+password", status_code=302)
     
+    if user.get("password") != hash_password(password):
+        print(f"❌ Invalid password for: {email}")
+        return RedirectResponse(url="/login?error=Invalid+email+or+password", status_code=302)
+    
+    # Update last login
     update_last_login(user["_id"])
     
+    # Create session
     session_token = create_session_token()
     active_sessions[session_token] = {
         "_id": user["_id"],
@@ -255,9 +293,18 @@ async def login(email: str = Form(...), password: str = Form(...)):
     }
     
     print(f"✅ User logged in: {user['name']} ({user['email']})")
+    print(f"   Active sessions: {len(active_sessions)}")
+    print(f"   Session token: {session_token[:16]}...")
     
+    # Set cookie and redirect
     response = RedirectResponse(url="/", status_code=302)
-    response.set_cookie(key="session_token", value=session_token, httponly=True, max_age=86400*7)
+    response.set_cookie(
+        key="session_token", 
+        value=session_token, 
+        httponly=True, 
+        max_age=86400*7,
+        samesite="lax"
+    )
     return response
 
 @app.get("/logout")
@@ -267,10 +314,12 @@ async def logout(session_token: Optional[str] = Cookie(None)):
         user = active_sessions[session_token]
         user_id = str(user["_id"])
         
+        # Save any active session
         if user_id in user_sessions:
             save_session_to_db(user_id)
         
         del active_sessions[session_token]
+        print(f"✅ User logged out: {user['name']}")
     
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie(key="session_token")
@@ -279,6 +328,8 @@ async def logout(session_token: Optional[str] = Cookie(None)):
 @app.get("/api/current-user")
 async def get_current_user_info(user = Depends(get_current_user)):
     """Get current logged in user info"""
+    print(f"📊 Fetching user info for: {user['name']}")
+    
     user_data = users_collection.find_one({"_id": user["_id"]})
     if not user_data:
         raise HTTPException(status_code=404, detail="User not found")
@@ -294,14 +345,20 @@ async def get_current_user_info(user = Depends(get_current_user)):
 # ==================== SESSION ROUTES ====================
 
 @app.post("/session/start")
-async def start_session(timer_duration: int = Body(None, embed=True), user = Depends(get_current_user)):
+async def start_session(
+    request: Request,
+    timer_duration: int = Body(None, embed=True), 
+    user = Depends(get_current_user)
+):
     """Start a new focus session with Python CV"""
     try:
         user_id = str(user["_id"])
         
+        print(f"\n{'='*60}")
         print(f"🔄 Starting session for user: {user['name']}")
         print(f"⏱️  Timer duration: {timer_duration} minutes")
         print(f"🖥️  Mode: PYTHON CV (Local Detection)")
+        print(f"{'='*60}\n")
         
         with session_lock:
             # Clear any existing session
@@ -312,8 +369,8 @@ async def start_session(timer_duration: int = Body(None, embed=True), user = Dep
                     try:
                         old_session["cv_processor"].stop()
                         time.sleep(0.5)
-                    except:
-                        pass
+                    except Exception as e:
+                        print(f"⚠️  Error stopping old CV processor: {e}")
                 save_session_to_db(user_id)
                 del user_sessions[user_id]
             
@@ -413,23 +470,42 @@ async def start_session(timer_duration: int = Body(None, embed=True), user = Dep
                         print(f"📊 Status changed: {current_interval_status} → {new_status}")
             except Exception as e:
                 print(f"⚠️  Error in status callback: {e}")
+                import traceback
+                traceback.print_exc()
         
         print("📷 Starting Python CV processor...")
-        cv_processor = CVProcessor(callback=status_callback, alert_mode=alert_mode)
-        user_sessions[user_id]["cv_processor"] = cv_processor
+        try:
+            cv_processor = CVProcessor(callback=status_callback, alert_mode=alert_mode)
+            user_sessions[user_id]["cv_processor"] = cv_processor
+            
+            cv_thread = threading.Thread(target=cv_processor.start, daemon=True)
+            cv_thread.start()
+            
+            print(f"✅ CV processor thread started")
+            
+        except Exception as cv_error:
+            print(f"❌ CV Processor failed to start: {cv_error}")
+            import traceback
+            traceback.print_exc()
+            
+            # Clean up
+            if user_id in user_sessions:
+                del user_sessions[user_id]
+            
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Camera initialization failed: {str(cv_error)}"
+            )
         
-        cv_thread = threading.Thread(target=cv_processor.start, daemon=True)
-        cv_thread.start()
+        print(f"✅ Session started successfully with Python CV\n")
         
-        print(f"✅ Session started successfully with Python CV")
-        
-        return {
+        return JSONResponse(content={
             "message": "Session started with Python CV",
             "session_id": str(session_id),
             "user_name": user["name"],
             "timer_end_time": timer_end_time.isoformat() if timer_end_time else None,
             "browser_mode": False
-        }
+        })
     
     except HTTPException:
         raise
@@ -449,7 +525,7 @@ async def end_session_route(user = Depends(get_current_user)):
     
     session_data = user_sessions[user_id]
     
-    print("🛑 Ending session...")
+    print("\n🛑 Ending session...")
     
     # Get final stats
     try:
@@ -494,6 +570,7 @@ async def end_session_route(user = Depends(get_current_user)):
                 }
             )
             
+            # Clean up memory
             del user_sessions[user_id]
             
         except Exception as e:
@@ -501,7 +578,7 @@ async def end_session_route(user = Depends(get_current_user)):
             if user_id in user_sessions:
                 del user_sessions[user_id]
     
-    print(f"✅ Session ended - Study time: {stats['metrics']['studying_time']}s")
+    print(f"✅ Session ended - Study time: {stats['metrics']['studying_time']}s\n")
     
     return {
         "message": "Session ended",
@@ -574,6 +651,7 @@ async def update_user_profile_settings(profile: UserProfileUpdate, user = Depend
         
         updates["name"] = profile.new_name
         
+        # Update active session
         for token, session in active_sessions.items():
             if session["_id"] == user["_id"]:
                 session["name"] = profile.new_name
