@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Focus Tracker - Study Session Monitor</title>
     
-    <!-- No external JS needed - using Python CV backend -->
-    
     <style>
         * {
             margin: 0;
@@ -188,6 +186,12 @@
             transform: translateY(-2px);
         }
         
+        .btn-primary:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
         .btn-danger {
             background: #f56565;
             color: white;
@@ -310,6 +314,15 @@
             color: #718096;
             font-size: 1.2em;
         }
+
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #c53030;
+        }
     </style>
 </head>
 <body>
@@ -333,6 +346,8 @@
                 <a href="/logout" class="logout-btn">Logout</a>
             </div>
         </div>
+
+        <div id="errorContainer"></div>
 
         <!-- Status Banner -->
         <div id="statusBanner" class="status-banner hidden">
@@ -398,6 +413,18 @@
         let mainUpdateInterval = null;
         let statusPollInterval = null;
         
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `
+                <div class="error-message">
+                    <strong>⚠️ Error:</strong> ${message}
+                </div>
+            `;
+            setTimeout(() => {
+                errorContainer.innerHTML = '';
+            }, 5000);
+        }
+        
         function updateDebugInfo(status) {
             const indicator = document.getElementById('debugIndicator');
             if (sessionActive) {
@@ -435,7 +462,6 @@
             updateDebugInfo(status);
         }
         
-        // Poll server for status updates from Python CV
         async function pollStatus() {
             if (!sessionActive) return;
             
@@ -445,17 +471,18 @@
                     const data = await response.json();
                     updateStatusUI(data.current_status);
                     
-                    // Check for new alerts
                     if (data.recent_alerts && data.recent_alerts.length > 0) {
                         const lastAlert = data.recent_alerts[data.recent_alerts.length - 1];
                         const alertTime = new Date(lastAlert.timestamp).getTime();
                         const now = Date.now();
                         
-                        // Show alert if it's recent (within last 5 seconds)
                         if (now - alertTime < 5000) {
                             triggerAlert(lastAlert.message);
                         }
                     }
+                } else if (response.status === 401) {
+                    console.error('Session expired, redirecting to login');
+                    window.location.href = '/login';
                 }
             } catch (error) {
                 console.error('Failed to poll status:', error);
@@ -478,60 +505,89 @@
         
         async function startSession() {
             const minutes = parseInt(document.getElementById('timerMinutes').value);
+            const startBtn = document.getElementById('startBtn');
             
             if (!minutes || minutes < 1) {
-                alert('Please set a valid timer duration');
+                showError('Please set a valid timer duration (at least 1 minute)');
                 return;
             }
+            
+            // Disable button to prevent double-click
+            startBtn.disabled = true;
+            startBtn.textContent = 'Starting...';
+            
+            console.log('🔄 Starting session with timer:', minutes, 'minutes');
             
             try {
                 const response = await fetch('/session/start', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include', // Important for cookies
                     body: JSON.stringify({ timer_duration: minutes })
                 });
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    if (data.browser_mode === true) {
-                        alert('Python CV is not available. Please run locally with opencv-python installed.');
-                        return;
-                    }
-                    
-                    sessionActive = true;
-                    sessionStartTime = Date.now();
-                    timerEndTime = Date.now() + (minutes * 60 * 1000);
-                    
-                    document.getElementById('startBtn').classList.add('hidden');
-                    document.getElementById('endBtn').classList.remove('hidden');
-                    document.getElementById('dashboard').classList.remove('hidden');
-                    document.getElementById('noSession').classList.add('hidden');
-                    document.getElementById('timerSetup').style.display = 'none';
-                    document.getElementById('timerDisplay').classList.add('active');
-                    document.getElementById('statusBanner').classList.remove('hidden');
-                    
-                    // Start polling status from Python CV backend
-                    statusPollInterval = setInterval(pollStatus, 2000); // Poll every 2 seconds
-                    
-                    // Start UI updates
-                    mainUpdateInterval = setInterval(() => {
-                        updateTimer();
-                        updateStats();
-                    }, 500);
-                    
+                console.log('📡 Response status:', response.status);
+                
+                if (response.status === 401) {
+                    showError('Not authenticated. Redirecting to login...');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 2000);
+                    return;
+                }
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `Server error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Session started:', data);
+                
+                if (data.browser_mode === true) {
+                    showError('Python CV is not available. Please run locally with opencv-python installed.');
+                    startBtn.disabled = false;
+                    startBtn.textContent = 'Start Session';
+                    return;
+                }
+                
+                sessionActive = true;
+                sessionStartTime = Date.now();
+                timerEndTime = Date.now() + (minutes * 60 * 1000);
+                
+                // Update UI
+                document.getElementById('startBtn').classList.add('hidden');
+                document.getElementById('endBtn').classList.remove('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                document.getElementById('noSession').classList.add('hidden');
+                document.getElementById('timerSetup').style.display = 'none';
+                document.getElementById('timerDisplay').classList.add('active');
+                document.getElementById('statusBanner').classList.remove('hidden');
+                
+                // Start polling
+                statusPollInterval = setInterval(pollStatus, 2000);
+                
+                // Start UI updates
+                mainUpdateInterval = setInterval(() => {
                     updateTimer();
                     updateStats();
-                    updateStatusUI('studying');
-                    
-                    console.log('✅ Session started with Python CV backend');
-                } else {
-                    const error = await response.json();
-                    alert('Failed to start session: ' + (error.detail || 'Unknown error'));
-                }
+                }, 500);
+                
+                updateTimer();
+                updateStats();
+                updateStatusUI('studying');
+                
+                console.log('✅ Session UI updated successfully');
+                
             } catch (error) {
-                console.error('Failed to start session:', error);
-                alert('Failed to start session! Make sure Python CV is running.');
+                console.error('❌ Failed to start session:', error);
+                showError(`Failed to start session: ${error.message}`);
+                
+                // Re-enable button
+                startBtn.disabled = false;
+                startBtn.textContent = 'Start Session';
             }
         }
         
@@ -555,6 +611,8 @@
             
             try {
                 const response = await fetch('/session/current');
+                if (!response.ok) return;
+                
                 const data = await response.json();
                 
                 document.getElementById('studyTime').textContent = formatTime(data.metrics.studying_time);
@@ -576,13 +634,21 @@
             try {
                 const response = await fetch('/session/end', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
                 });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to end session');
+                }
                 
                 const data = await response.json();
                 alert(`Session ended!\n\nStudy time: ${formatTime(data.final_stats.studying_time)}\nFocus score: ${Math.round(data.final_stats.focus_score)}%`);
                 
+                // Reset UI
                 document.getElementById('startBtn').classList.remove('hidden');
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('startBtn').textContent = 'Start Session';
                 document.getElementById('endBtn').classList.add('hidden');
                 document.getElementById('dashboard').classList.add('hidden');
                 document.getElementById('noSession').classList.remove('hidden');
@@ -593,6 +659,7 @@
                 document.getElementById('debugIndicator').className = 'debug-indicator';
             } catch (error) {
                 console.error('Failed to end session:', error);
+                showError('Failed to end session properly');
             }
         }
         
@@ -605,16 +672,32 @@
         
         async function loadUser() {
             try {
-                const response = await fetch('/api/current-user');
+                console.log('📊 Loading user info...');
+                const response = await fetch('/api/current-user', {
+                    credentials: 'include'
+                });
+                
+                if (response.status === 401) {
+                    console.error('❌ Not authenticated');
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load user');
+                }
+                
                 const user = await response.json();
+                console.log('✅ User loaded:', user.name);
                 document.getElementById('profileName').textContent = user.name;
             } catch (error) {
-                console.error('Failed to load user:', error);
+                console.error('❌ Failed to load user:', error);
                 window.location.href = '/login';
             }
         }
         
         // Initialize
+        console.log('🎯 Focus Tracker initializing...');
         loadUser();
         console.log('✅ Frontend initialized - using Python CV backend');
     </script>
