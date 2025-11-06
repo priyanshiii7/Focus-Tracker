@@ -16,20 +16,18 @@ from models import *
 from database import *
 import re
 
-# Detect if running on server (no camera access)
-IS_SERVER = os.getenv("RENDER") or os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("DYNO") or os.getenv("VERCEL")
+# Force Python CV mode - disable browser detection
+IS_SERVER = False  # ALWAYS use Python CV
 
-# Only import CV if running locally
-if not IS_SERVER:
-    try:
-        import cv2
-        from cv_processor import CVProcessor
-        print("💻 Running in LOCAL mode - Python CV available")
-    except:
-        IS_SERVER = True
-        print("🌐 CV imports failed - switching to BROWSER mode")
-else:
-    print("🌐 Running in SERVER mode - using browser detection")
+# Import CV - this is required now
+try:
+    import cv2
+    from cv_processor import CVProcessor
+    print("✅ Python CV imports successful")
+except Exception as e:
+    print(f"❌ CRITICAL: Python CV imports failed: {e}")
+    print("⚠️  Install required packages: pip install opencv-python mediapipe pyttsx3")
+    exit(1)
 
 app = FastAPI(title="Focus Tracker API")
 
@@ -297,20 +295,20 @@ async def get_current_user_info(user = Depends(get_current_user)):
 
 @app.post("/session/start")
 async def start_session(timer_duration: int = Body(None, embed=True), user = Depends(get_current_user)):
-    """Start a new focus session"""
+    """Start a new focus session with Python CV"""
     try:
         user_id = str(user["_id"])
         
         print(f"🔄 Starting session for user: {user['name']}")
         print(f"⏱️  Timer duration: {timer_duration} minutes")
-        print(f"🖥️  Mode: {'LOCAL (Python CV)' if not IS_SERVER else 'SERVER (Browser Detection)'}")
+        print(f"🖥️  Mode: PYTHON CV (Local Detection)")
         
         with session_lock:
             # Clear any existing session
             if user_id in user_sessions:
                 print(f"⚠️  Clearing existing session for user {user_id}")
                 old_session = user_sessions[user_id]
-                if not IS_SERVER and old_session.get("cv_processor"):
+                if old_session.get("cv_processor"):
                     try:
                         old_session["cv_processor"].stop()
                         time.sleep(0.5)
@@ -372,60 +370,65 @@ async def start_session(timer_duration: int = Body(None, embed=True), user = Dep
                     "distracted_time": 0,
                     "away_time": 0,
                     "total_alerts": 0
-                }
+                },
+                "current_status": "studying"
             }
         
-        # Only start CV processor if NOT on server
-        if not IS_SERVER:
-            alert_mode = user_data.get("alert_preference", "both")
-            print(f"🔔 Alert mode: {alert_mode}")
-            
-            def status_callback(new_status, alert_data=None):
-                try:
-                    with session_lock:
-                        if user_id not in user_sessions:
-                            return
-                        
-                        session_data = user_sessions[user_id]
-                        
-                        if new_status == "session_end":
-                            return
-                        
-                        if alert_data:
-                            session_data["recent_alerts"].append(alert_data)
-                            session_data["metrics"]["total_alerts"] += 1
-                            session_data["recent_alerts"] = session_data["recent_alerts"][-10:]
-                        
-                        current_interval_status = session_data["intervals"][-1]["status"] if session_data["intervals"] else None
-                        
-                        if new_status != current_interval_status:
-                            now = datetime.utcnow()
-                            if session_data["intervals"]:
-                                session_data["intervals"][-1]["end"] = now.isoformat()
-                            
-                            session_data["intervals"].append({
-                                "start": now.isoformat(),
-                                "end": None,
-                                "status": new_status
-                            })
-                except Exception as e:
-                    print(f"⚠️  Error in status callback: {e}")
-            
-            print("📷 Starting CV processor...")
-            cv_processor = CVProcessor(callback=status_callback, alert_mode=alert_mode)
-            user_sessions[user_id]["cv_processor"] = cv_processor
-            
-            cv_thread = threading.Thread(target=cv_processor.start, daemon=True)
-            cv_thread.start()
+        # Start Python CV processor
+        alert_mode = user_data.get("alert_preference", "both")
+        print(f"🔔 Alert mode: {alert_mode}")
         
-        print(f"✅ Session started successfully for {user['name']}")
+        def status_callback(new_status, alert_data=None):
+            try:
+                with session_lock:
+                    if user_id not in user_sessions:
+                        return
+                    
+                    session_data = user_sessions[user_id]
+                    
+                    if new_status == "session_end":
+                        return
+                    
+                    # Update current status
+                    session_data["current_status"] = new_status
+                    
+                    if alert_data:
+                        session_data["recent_alerts"].append(alert_data)
+                        session_data["metrics"]["total_alerts"] += 1
+                        session_data["recent_alerts"] = session_data["recent_alerts"][-10:]
+                    
+                    current_interval_status = session_data["intervals"][-1]["status"] if session_data["intervals"] else None
+                    
+                    if new_status != current_interval_status:
+                        now = datetime.utcnow()
+                        if session_data["intervals"]:
+                            session_data["intervals"][-1]["end"] = now.isoformat()
+                        
+                        session_data["intervals"].append({
+                            "start": now.isoformat(),
+                            "end": None,
+                            "status": new_status
+                        })
+                        
+                        print(f"📊 Status changed: {current_interval_status} → {new_status}")
+            except Exception as e:
+                print(f"⚠️  Error in status callback: {e}")
+        
+        print("📷 Starting Python CV processor...")
+        cv_processor = CVProcessor(callback=status_callback, alert_mode=alert_mode)
+        user_sessions[user_id]["cv_processor"] = cv_processor
+        
+        cv_thread = threading.Thread(target=cv_processor.start, daemon=True)
+        cv_thread.start()
+        
+        print(f"✅ Session started successfully with Python CV")
         
         return {
-            "message": "Session started",
+            "message": "Session started with Python CV",
             "session_id": str(session_id),
             "user_name": user["name"],
             "timer_end_time": timer_end_time.isoformat() if timer_end_time else None,
-            "browser_mode": IS_SERVER
+            "browser_mode": False
         }
     
     except HTTPException:
@@ -435,45 +438,6 @@ async def start_session(timer_duration: int = Body(None, embed=True), user = Dep
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to start session: {str(e)}")
-
-@app.post("/session/status-update")
-async def browser_status_update(
-    status: str = Body(...),
-    alert: dict = Body(None),
-    user = Depends(get_current_user)
-):
-    """Receive status updates from browser-based face detection"""
-    user_id = str(user["_id"])
-    
-    if user_id not in user_sessions:
-        raise HTTPException(status_code=404, detail="No active session")
-    
-    with session_lock:
-        session_data = user_sessions[user_id]
-        now = datetime.utcnow()
-        
-        # Handle alert
-        if alert:
-            session_data["recent_alerts"].append(alert)
-            session_data["metrics"]["total_alerts"] += 1
-            session_data["recent_alerts"] = session_data["recent_alerts"][-10:]
-        
-        # Check if status actually changed
-        current_intervals = session_data["intervals"]
-        if current_intervals and current_intervals[-1]["status"] != status:
-            # Close previous interval
-            current_intervals[-1]["end"] = now.isoformat()
-            
-            # Start new interval
-            current_intervals.append({
-                "start": now.isoformat(),
-                "end": None,
-                "status": status
-            })
-            
-            print(f"🔄 Status changed: {status}")
-    
-    return {"status": "updated"}
 
 @app.post("/session/end")
 async def end_session_route(user = Depends(get_current_user)):
@@ -502,10 +466,10 @@ async def end_session_route(user = Depends(get_current_user)):
             }
         }
     
-    # Stop CV processor if exists
-    if not IS_SERVER and session_data.get("cv_processor"):
+    # Stop CV processor
+    if session_data.get("cv_processor"):
         try:
-            print("Stopping CV processor...")
+            print("Stopping Python CV processor...")
             session_data["cv_processor"].stop()
             time.sleep(0.5)
         except Exception as e:
@@ -556,9 +520,7 @@ async def get_current_session_stats(user = Depends(get_current_user)):
     session_data = user_sessions[user_id]
     metrics = calculate_current_metrics(session_data)
     
-    current_status = "studying"
-    if session_data["intervals"]:
-        current_status = session_data["intervals"][-1]["status"]
+    current_status = session_data.get("current_status", "studying")
     
     return {
         "session_id": str(session_data["session_id"]),
@@ -683,6 +645,6 @@ if __name__ == "__main__":
     print("🎯 Starting Focus Tracker...")
     print("=" * 60)
     print(f"🚀 Server running on port {PORT}")
-    print(f"🖥️  Mode: {'LOCAL (Python CV)' if not IS_SERVER else 'SERVER (Browser Detection)'}")
+    print(f"🖥️  Mode: PYTHON CV (Local Face Detection)")
     print("=" * 60)
     uvicorn.run(app, host="0.0.0.0", port=PORT)
